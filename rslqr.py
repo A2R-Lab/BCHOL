@@ -216,6 +216,312 @@ class OrderedBinarytree(object):
         base_node = GetNodeAtLevel(node, index, level) # (Srishti - "check how to define const variable here (syntax)")
         return base_node.idx
 
+def PrintComp(base, new):
+    print(f"{base} / {new} ({base / new} speedup)")
+
+class NdLqrProfile(object):
+    """
+    @brief A struct describing how long each part of the solve took, in milliseconds.
+
+    ## Methods
+    - ndlqr_NewNdLqrProfile()
+    - ndlqr_ResetProfile()
+    - ndlqr_CopyProfile()
+    - ndlqr_PrintProfile()
+    - ndlqr_CompareProfile()
+    """
+    def _init_(self):
+        self.t_total_ms
+        self.t_leaves_ms
+        self.t_products_ms
+        self.t_cholesky_ms
+        self.t_cholsolve_ms
+        self.t_shur_ms
+        self.num_threads
+
+    def ndlqr_NewNdLqrProfile(self):
+        """
+        @brief Create a profile initialized with zeros
+        """
+        prof = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1]
+        return prof
+
+    def ndlqr_ResetProfile(self, prof):
+        """
+        @brief Reset the profile to its initialized state
+
+        @param prof A profile
+        """
+        prof.t_total_ms = 0.0
+        prof.t_leaves_ms = 0.0
+        prof.t_products_ms = 0.0
+        prof.t_cholesky_ms = 0.0
+        prof.t_cholsolve_ms = 0.0
+        prof.t_shur_ms = 0.0
+        return
+
+    def ndlqr_CopyProfile(self, dest, src):
+        """
+        @brief Copy the profile information to a new profile
+
+        @param dest New location for data. Existing data will be overwritten.
+        @param src Data to be copied.
+        """
+        dest.num_threads = src.num_threads
+        dest.t_total_ms = src.t_total_ms
+        dest.t_leaves_ms = src.t_leaves_ms
+        dest.t_products_ms = src.t_products_ms
+        dest.t_cholesky_ms = src.t_cholesky_ms
+        dest.t_cholsolve_ms = src.t_cholsolve_ms
+        dest.t_shur_ms = src.t_shur_ms
+        return
+
+    def ndlqr_PrintProfile(self, profile):
+        """
+        @brief Print a summary fo the profile
+
+        @param profile
+        """
+        print(f"Solved with {profile.num_threads} threads")
+        print(f"Solve Total:    {profile.t_total_ms} ms")
+        print(f"Solve Leaves:   {profile.t_leaves_ms} ms")
+        print(f"Solve Products: {profile.t_products_ms} ms")
+        print(f"Solve Cholesky: {profile.t_cholesky_ms} ms")
+        print(f"Solve Solve:    {profile.t_cholsolve_ms} ms")
+        print(f"Solve Shur:     {profile.t_shur_ms} ms")
+        return
+
+    def ndlqr_CompareProfile(self, base, prof):
+        """
+        @brief Compare two profiles, printing the comparison to stdout
+
+        @param base The baseline profile
+        @param prof The "new" profile
+        """
+        print(f"Num Threads:     {base.num_threads} / {prof.num_threads}")
+        print(f"Solve Total:     ")
+        PrintComp(base.t_total_ms, prof.t_total_ms)
+        print(f"Solve Leaves:    ")
+        PrintComp(base.t_leaves_ms, prof.t_leaves_ms)
+        print(f"Solve Products:  ")
+        PrintComp(base.t_products_ms, prof.t_products_ms)
+        print(f"Solve Cholesky:  ")
+        PrintComp(base.t_cholesky_ms, prof.t_cholesky_ms)
+        print(f"Solve CholSolve: ")
+        PrintComp(base.t_cholsolve_ms, prof.t_cholsolve_ms)
+        print(f"Solve Shur Comp: ")
+        PrintComp(base.t_shur_ms, prof.t_shur_ms)
+
+class NdLqrSolver(object):
+    """
+    @brief Main solver for rsLQR
+
+    Core struct for solving problems with rsLQR. Allocates all the required memory
+    up front to avoid any dynamic memory allocations at runtime. Right now, the
+    horizon length is required to be a power of 2 (e.g. 32,64,128,256,etc.).
+
+    ## Construction and destruction
+    Use ndlqr_NewNdLqrSolver() to initialize a new solver. This should always be
+    paired with a single call to ndlqr_FreeNdLqrSolver().
+
+    ## Typical Usage
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    LQRProblem* lqrprob = ndlqr_ReadTestLQRProblem();  // your data here
+    int nstates = lqrprob->lqrdata[0]->nstates;
+    int ninputs = lqrprob->lqrdata[0]->ninputs;
+    int nhorizon = lqrprob->nhorizon;
+
+    NdLqrSolver* solver = ndlqr_NewNdLqrSolver(nstates, ninputs, nhorizon);
+    ndlqr_InitializeWithLQRProblem(lqrprob, solver);
+    ndlqr_Solve(solver);
+    ndlqr_PrintSolveSummary();
+    ndlqr_FreeLQRProblem(lqrprob);
+    ndlqr_FreeNdLqrSolver(solver);
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    ## Methods (Srishti - "this list is probably outdated")
+    - ndlqr_NewNdLqrSolver()
+    - ndlqr_FreeNdLqrSolver()
+    - ndlqr_InitializeWithLQRProblem()
+    - ndlqr_Solve()
+    - ndlqr_ResetSolver()
+    - ndlqr_GetNumVars()
+    - ndlqr_SetNumThreads()
+    - ndlqr_PrintSolveProfile()
+    - ndlqr_GetProfile()
+    """
+    def _init_(self):
+        self.nstates # < size of state vector
+        self.ninputs # < number of control inputs
+        self.nhorizon # < length of the time horizon
+        self.depth # < depth of the binary tree
+        self.nvars # < number of decision variables (size of the linear system)
+        self.tree
+        self.diagonals # < (nhorizon,2) array of diagonal blocks (Q,R)
+        self.data # < original matrix data
+        self.fact # < factorization
+        self.soln # < solution vector (also the initial RHS)
+        self.cholfacts
+        self.solve_time_ms # < total solve time in milliseconds.
+        self.linalg_time_ms
+        self.profile
+        self.num_threads # < Number of threads used by the solver.
+
+    def ndlqr_NewNdLqrSolver(self, nstates, ninputs, nhorizon):
+        """
+        @brief Create a new solver, allocating all the required memory.
+
+        Must be followed by a later call to ndlqr_FreeNdLqrSolver().
+
+        @param nstates Number of elements in the state vector
+        @param ninputs Number of control inputs
+        @param nhorizon Length of the time horizon. Must be a power of 2.
+        @return A pointer to the new solver
+        """
+        tree = ndlqr_BuildTree(nhorizon)
+        solver = 
+        nvars = (2 * nstates + ninputs) * nhorizon - ninputs
+
+        diag_size = (nstates * nstates + ninputs * ninputs) * nhorizon
+        diag_data = 
+        diagonals = 
+        for k in range(nhorizon):
+            blocksize = nstates * nstates + ninputs * ninputs
+            diagonals[2 * k].rows = nstates
+            diagonals[2 * k].cols = nstates
+            diagonals[2 * k].data = diag_data + k * blocksize
+            diagonals[2 * k + 1].rows = ninputs
+            diagonals[2 * k + 1].cols = ninputs
+            diagonals[2 * k + 1].data = diag_data + k * blocksize + nstates * nstates
+        
+        cholfacts = ndlqr_NewCholeskyFactors(tree.depth, nhorizon)
+
+        solver.nstates = nstates
+        solver.ninputs = ninputs
+        solver.nhorizon = nhorizon
+        solver.depth = tree.depth
+        solver.nvars = nvars
+        solver.tree = tree
+        solver.diagonals = diagonals
+        solver.data = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
+        solver.fact = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
+        solver.soln = ndlqr_NewNdData(nstates, ninputs, nhorizon, 1)
+        solver.cholfacts = cholfacts
+        solver.solve_time_ms = 0.0
+        solver.linalg_time_ms = 0.0
+        solver.profile = ndlqr_NewNdLqrProfile()
+        solver.num_threads = omp_get_num_procs() / 2
+        return solver
+
+    def ndlqr_FreeNdLqrSolver(self, solver): # (Srishti - "not sure how to do this -> Leaving it empty for now")
+        """
+        @brief Deallocates the memory for the solver.
+
+        @param solver An initialized solver.
+        @return 0 if successful.
+        @post solver == NULL
+        """
+
+    def ndlqr_InitializeWithLQRProblem(self, lqrprob, solver): # (Srishti - "big function -> Will do later")
+        """
+        @brief Initialize the solver with data from an LQR Problem.
+
+        @pre Solver has already been initialized via ndlqr_NewNdLqrSolver()
+        @param lqrprob An initialized LQR problem with the data to be be solved.
+        @param solver An initialized solver.
+        @return 0 if successful
+        """
+
+    def ndlqr_ResetSolver(self, solver): # (Srishti - "complex function -> Will do later")
+        """
+        @brief Resets the rsLQR solver
+
+        Resets all of the data in the solver to how it was when it was first initialized.
+
+        @param solver
+        """
+
+    def ndlqr_PrintSolveSummary(self, solver):
+        """
+        @brief Prints a summary of the solve
+
+        Prints solve time, the residual norm, and the number of theads.
+
+        @pre ndlqr_Solve() has already been called
+        @param solver
+        """
+        print("rsLQR Solve Summary")
+        print("-------------------")
+        print("  The rsLQR solver is a parallel solver for LQR problems")
+        print("  developed by the RExLab at Carnegie Mellon University.\n")
+        print(f"  Solve time:  {solver.solve_time_ms} ms")
+        if kMatrixLinearAlgebraTimingEnabled:
+            print(f"  LinAlg time: {solver.linalg_time_ms} ms ({100.0 * solver.linalg_time_ms / solver.solve_time_ms}%% of total)")
+        print(f"  Solved with {solver.num_threads} threads.")
+        print("  ")
+        MatrixPrintLinearAlgebraLibrary()
+        return
+
+    def ndlqr_GetNumVars(self, solver):
+        """
+        @brief Gets the total number of decision variables for the problem.
+
+        @param solver
+        """
+        return solver.nvars
+
+    def ndlqr_SetNumThreads(self, solver, num_threads):
+        """
+        @brief Set the number of threads to be used during the solve
+
+        Does not guarantee that the specified number of threads will be used.
+        To query the actual number of threads used during the solve, use the
+        ndlqr_GetNumThreads() function after the solve.
+
+        @param solver rsLQR solver
+        @param num_threads requested number of threads
+        @return 0 if successful
+        """
+        if not solver:
+            return -1
+        solver.num_threads = num_threads
+        return 0
+
+    def ndlqr_GetNumThreads(self, solver):
+        """
+        @brief Get the number of threads used during the rsLQR solve
+
+        @param solver A solver which has already been initialized and solved
+        @return number of OpenMP threads used the by solver
+        """
+        if not solver:
+            return -1
+        return solver.num_threads
+
+    def ndlqr_PrintSolveProfile(self, solver):
+        """
+        @brief Prints a summary of how long individual components took
+
+        @pre ndlqr_Solve() has already been called
+        @param solver A solver which has already been initialized and solved
+        @return 0 if successful
+        """
+        if not solver:
+            return -1
+        ndlqr_PrintProfile(solver.profile)
+        return 0
+
+    def ndlqr_GetProfile(self, solver):
+        """
+        @brief Ge the internal profile data from a solve
+
+        @param solver A solver which has already been initialized and solved
+        @return A profile object containing timing information about the solve
+                See NdLqrProfile for more info.
+        """
+        return solver.profile
+
 def ndlqr_GetNdFactor(fact,index,level,F):
     """
     Retrieve the individual Ndfactor out of the NdData  """
