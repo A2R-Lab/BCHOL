@@ -10,14 +10,16 @@ import utils.h
 import solver
 """
 
-#TRANSLATION many functions to python built in fcts:"""
+#TRANSLATION many functions to python built in fcts:
+
 
 def isPowerOfTwo(x):
     if x < 1:
         return False
     return math.log2(x) % 1 == 0
 """
-PowerOfTwo = math.pow(2, x)"""
+PowerOfTwo = math.pow(2, x)
+"""
 
 
 """
