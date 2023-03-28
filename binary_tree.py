@@ -134,7 +134,7 @@ class OrderedBinarytree(object):
         @return int  The index closest to the provided one, in the given level. -1 if
         unsucessful.
         """
-        if tree = None: # (Srishti - "is this syntax correct for Python" Yana -"Yep!")
+        if tree == None: # (Srishti - "is this syntax correct for Python" Yana -"Yep!")
             return -1
         if index < 0 or index >= tree.num_elements:
             print(f"ERROR: Invalid index ({index}). Should be between 0 and {tree.num_elements - 1}.")
