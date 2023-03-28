@@ -221,6 +221,7 @@ class OrderedBinarytree(object):
 def PrintComp(base, new):
     print(f"{base} / {new} ({base / new} speedup)")
 
+### Time only
 class NdLqrProfile(object):
     """
     @brief A struct describing how long each part of the solve took, in milliseconds.
@@ -314,6 +315,7 @@ class NdLqrProfile(object):
         print(f"Solve Shur Comp: ")
         PrintComp(base.t_shur_ms, prof.t_shur_ms)
 
+###
 class NdLqrSolver(object):
     """
     @brief Main solver for rsLQR
@@ -540,30 +542,11 @@ def ndlqr_ShouldCalcLambda(tree, index, k):
     """Define the function"""
     return
 
-#REWRITE USING NUMPY LINALG!:
-def ndlqr_FactorInnerProduct(data,fact,index,level,upper_level):
-    """
-    Define the funtion
-    """
-    return
-def ndlqr_GetSFactorization():
-    """LinAlg rewrite!"""
-
-def ndlqr_SolveCholeskyFactor():
-    """LinAlg Rewrite!"""
-
-def MatrixCholeskyFactorizeWithInfo():
-    """LinAlfRewrite!"""
-
-def ndlqr_UdpateShurFactor():
-    """LinAlg rewrite!"""
-    return 
-
 #ACTUAL ALGORITHM
-
 #Step 1
 def ndlqr_SolveLeaf(solver, index):
     """
+    part of nexted_dissection
     Solve all the equations for the lowest-level diagonal blocks, by timestep
     """
     nstates = solver.nstates
