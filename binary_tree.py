@@ -2,6 +2,7 @@ class BinaryNode (object):
     """
     @brief One of the nodes in the binary tree for the rsLQR solver
     """
+    #How do we initialize binaryNode? - Yana
     def _init_(self):
         self.idx # < knot point index
         self.level # < level in the tree
@@ -12,7 +13,7 @@ class BinaryNode (object):
         self.left_child # < left child
         self.right_child # < right child
 
-def BuildSubTree(start,len):
+def BuildSubTree(start,len): #because it is static needs to be in node class or tree class? -Yana
         """
         actualy builds the tree,need to implement the function (Srishti - "implemented this now, but not sure if it's the correct translation from C")
         """
@@ -58,11 +59,11 @@ class OrderedBinarytree(object):
     def _init_(self,nhorizon): # (Srishti - "why does it have nhorizon as input"; 
     #Yana - "Because we need the length of the length of the time horizon to buils the tree")
         self.root # (C type: BinaryNode*) < root of the tree. Corresponds to the "middle" knot point.
-        self.node_list # (C type: BinaryNode*) < a list of all the nodes, ordered by their knot point index
+        self.node_list = [] # (C type: BinaryNode*) < a list of all the nodes, ordered by their knot point index
         self.num_elements # (C type: int) < length of the OrderedBinaryTree::node_list
         self.depth # (C type: int) < total depth of the tree
 
-    
+    #Can we call it _init_ instead? - Yana
     def ndlqr_BuildTree(self, nhorizon): # (Srishti - "Is N (of C code) = nhorizon (of Python code)? - I think yes, look at .c file")
         """
         @brief Construct a new binary tree for a horizon of length @p N
@@ -75,13 +76,14 @@ class OrderedBinarytree(object):
 
         for i in range (nhorizon):
             self.node_list[i].idx = i # (Srishti - "don't we have to make node_list of length `nhorizon` first?")
+                                    # (Yana - "In python we don't have to specify the length of the list")
         self.num_elements = nhorizon
         self.depth = math.log2(nhorizon)
         
         # Build the tree
         self.root = BuildSubTree(node_list, nhorizon - 1)
 
-    #don't need ndlqr_FreeeTree (Srishti - "why not?")
+    #don't need ndlqr_FreeeTree (Srishti - "why not?", Yana - "Because we dont need to free malloc?")
       
     def ndlqr_GetIndexFromLeaf(self, leaf, level):
         """
@@ -105,6 +107,18 @@ class OrderedBinarytree(object):
         """
         return self.node_list[index].level   
 
+    #"Is there const functions in python?"
+    def ndlqr_GetNodeAtLevel (node,index,level):
+        if(node.level == level):
+            return node
+        elif(node,level>level):
+            if(index <= node.idx):
+                return GetNodeAtLevel (node.left_child, index, level)
+            else:
+                    return GetNodeAtLevel(node.right_child, index, level)
+        else:
+            return GetNodeAtLevel(node.parent, index, level)
+
     def ndlqr_GetIndexAtLevel(tree, leaf, level):
         """
         @brief Get the index in 'level' that corresponds to `index`.
@@ -120,7 +134,7 @@ class OrderedBinarytree(object):
         @return int  The index closest to the provided one, in the given level. -1 if
         unsucessful.
         """
-        if tree = None: # (Srishti - "is this syntax correct for Python")
+        if tree = None: # (Srishti - "is this syntax correct for Python" Yana -"Yep!")
             return -1
         if index < 0 or index >= tree.num_elements:
             print(f"ERROR: Invalid index ({index}). Should be between 0 and {tree.num_elements - 1}.")
@@ -134,99 +148,3 @@ class OrderedBinarytree(object):
 
         base_node = GetNodeAtLevel(node, index, level) # (Srishti - "check how to define const variable here (syntax)")
         return base_node.idx
-
-def PrintComp(base, new):
-    print(f"{base} / {new} ({base / new} speedup)")
-
-class NdLqrProfile(object):
-    """
-    @brief A struct describing how long each part of the solve took, in milliseconds.
-
-    ## Methods
-    - ndlqr_NewNdLqrProfile()
-    - ndlqr_ResetProfile()
-    - ndlqr_CopyProfile()
-    - ndlqr_PrintProfile()
-    - ndlqr_CompareProfile()
-    """
-    def _init_(self):
-        self.t_total_ms
-        self.t_leaves_ms
-        self.t_products_ms
-        self.t_cholesky_ms
-        self.t_cholsolve_ms
-        self.t_shur_ms
-        self.num_threads
-
-    def ndlqr_NewNdLqrProfile(self):
-        """
-        @brief Create a profile initialized with zeros
-        """
-        prof = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1]
-        return prof
-
-    def ndlqr_ResetProfile(self, prof):
-        """
-        @brief Reset the profile to its initialized state
-
-        @param prof A profile
-        """
-        prof.t_total_ms = 0.0
-        prof.t_leaves_ms = 0.0
-        prof.t_products_ms = 0.0
-        prof.t_cholesky_ms = 0.0
-        prof.t_cholsolve_ms = 0.0
-        prof.t_shur_ms = 0.0
-        return
-
-    def ndlqr_CopyProfile(self, dest, src):
-        """
-        @brief Copy the profile information to a new profile
-
-        @param dest New location for data. Existing data will be overwritten.
-        @param src Data to be copied.
-        """
-        dest.num_threads = src.num_threads
-        dest.t_total_ms = src.t_total_ms
-        dest.t_leaves_ms = src.t_leaves_ms
-        dest.t_products_ms = src.t_products_ms
-        dest.t_cholesky_ms = src.t_cholesky_ms
-        dest.t_cholsolve_ms = src.t_cholsolve_ms
-        dest.t_shur_ms = src.t_shur_ms
-        return
-
-    def ndlqr_PrintProfile(self, profile):
-        """
-        @brief Print a summary fo the profile
-
-        @param profile
-        """
-        print(f"Solved with {profile.num_threads} threads")
-        print(f"Solve Total:    {profile.t_total_ms} ms")
-        print(f"Solve Leaves:   {profile.t_leaves_ms} ms")
-        print(f"Solve Products: {profile.t_products_ms} ms")
-        print(f"Solve Cholesky: {profile.t_cholesky_ms} ms")
-        print(f"Solve Solve:    {profile.t_cholsolve_ms} ms")
-        print(f"Solve Shur:     {profile.t_shur_ms} ms")
-        return
-
-    def ndlqr_CompareProfile(self, base, prof):
-        """
-        @brief Compare two profiles, printing the comparison to stdout
-
-        @param base The baseline profile
-        @param prof The "new" profile
-        """
-        print(f"Num Threads:     {base.num_threads} / {prof.num_threads}")
-        print(f"Solve Total:     ")
-        PrintComp(base.t_total_ms, prof.t_total_ms)
-        print(f"Solve Leaves:    ")
-        PrintComp(base.t_leaves_ms, prof.t_leaves_ms)
-        print(f"Solve Products:  ")
-        PrintComp(base.t_products_ms, prof.t_products_ms)
-        print(f"Solve Cholesky:  ")
-        PrintComp(base.t_cholesky_ms, prof.t_cholesky_ms)
-        print(f"Solve CholSolve: ")
-        PrintComp(base.t_cholsolve_ms, prof.t_cholsolve_ms)
-        print(f"Solve Shur Comp: ")
-        PrintComp(base.t_shur_ms, prof.t_shur_ms)
