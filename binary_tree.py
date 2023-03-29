@@ -22,7 +22,7 @@ class BinaryNode (object):
         mid = (len + 1) // 2
         new_len = mid - 1
         if len > 1:
-            self = start + new_len #binaryNode
+            self = start + new_len #binaryNode, how can we add BinaryNode* and int??
             left_root = BinaryNode(start, new_len)
             right_root = BinaryNode(start + mid, new_len)
             self.left_child = left_root

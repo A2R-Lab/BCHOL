@@ -2,6 +2,9 @@ def ndlqr_SolveLeaf(solver, index):
     """
     Solve all the equations for the lowest-level diagonal blocks, by timestep
     """
+    Qchol = None 
+    Rchol = None 
+
     nstates = solver.nstates
     nhotizon = solver.nhorizon
     k = index 
@@ -9,7 +12,7 @@ def ndlqr_SolveLeaf(solver, index):
         C = ndlqr_GetNdFactor(solver.data,k, 0)
         F = ndlqr_GetNdFactor(solver.fact,k,0)
         z = ndlqr_GetNdFactor(solver.soln,k,0)
-    Q = solver.diahonals[2*k]
+    Q = solver.diagonals[2*k]
     R = solver.diagonals[2*k+1]
 
 
@@ -17,9 +20,9 @@ def ndlqr_SolveLeaf(solver, index):
     # [   -I   ] [Fy]   [Cy]   [ 0 ]    [-A'    ]
     # [-I  Q   ] [Fx] = [Cx] = [ A'] => [ 0     ]
     # [      R ] [Fu]   [Cu]   [ B']    [ R \ B']
-    F.lambda = np.matrix.copy(C.state)
+    F.lambda = np.matrix.copy(C.state) 
     F.lambda = (F.lambda*-1)
-    F.state = (F.state* 0)
+    F.state = (np.zeros(())) #Do we know the dimensions of F matrix
     F.input = np.matrix.copy(C.input)
     Rchol = 
 
