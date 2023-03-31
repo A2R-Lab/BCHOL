@@ -1,6 +1,7 @@
 def PrintComp(base, new):
     print(f"{base} / {new} ({base / new} speedup)")
 
+### Time only
 class NdLqrProfile(object):
     """
     @brief A struct describing how long each part of the solve took, in milliseconds.
