@@ -7,43 +7,46 @@ class NdLqrProfile(object):
     @brief A struct describing how long each part of the solve took, in milliseconds.
 
     ## Methods
-    - ndlqr_NewNdLqrProfile()
+    - ndlqr_NewNdLqrProfile() # Srishti - "unnecesaary -> this is init in Python"
     - ndlqr_ResetProfile()
     - ndlqr_CopyProfile()
     - ndlqr_PrintProfile()
     - ndlqr_CompareProfile()
     """
     def _init_(self):
-        self.t_total_ms
-        self.t_leaves_ms
-        self.t_products_ms
-        self.t_cholesky_ms
-        self.t_cholsolve_ms
-        self.t_shur_ms
-        self.num_threads
-
-    def ndlqr_NewNdLqrProfile(self):
         """
         @brief Create a profile initialized with zeros
         """
+        self.t_total_ms = 0.0
+        self.t_leaves_ms = 0.0
+        self.t_products_ms = 0.0
+        self.t_cholesky_ms = 0.0
+        self.t_cholsolve_ms = 0.0
+        self.t_shur_ms = 0.0
+        self.num_threads = -1
+
+    # Srishti - "Commenting this out because unnecesaary -> this is init in Python"
+    '''
+    def ndlqr_NewNdLqrProfile(self):    
         prof = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1]
         return prof
+    '''
 
-    def ndlqr_ResetProfile(self, prof):
+    def ndlqr_ResetProfile(self):
         """
         @brief Reset the profile to its initialized state
 
         @param prof A profile
         """
-        prof.t_total_ms = 0.0
-        prof.t_leaves_ms = 0.0
-        prof.t_products_ms = 0.0
-        prof.t_cholesky_ms = 0.0
-        prof.t_cholsolve_ms = 0.0
-        prof.t_shur_ms = 0.0
+        self.t_total_ms = 0.0
+        self.t_leaves_ms = 0.0
+        self.t_products_ms = 0.0
+        self.t_cholesky_ms = 0.0
+        self.t_cholsolve_ms = 0.0
+        self.t_shur_ms = 0.0
         return
 
-    def ndlqr_CopyProfile(self, dest, src):
+    def ndlqr_CopyProfile(self, dest, src): # Srishti - "needs to be changed -> self is dest or src, depending on usage, currently no usage seen in Python code"
         """
         @brief Copy the profile information to a new profile
 
@@ -74,7 +77,7 @@ class NdLqrProfile(object):
         print(f"Solve Shur:     {profile.t_shur_ms} ms")
         return
 
-    def ndlqr_CompareProfile(self, base, prof):
+    def ndlqr_CompareProfile(self, base, prof): # Srishti - "needs to be changed -> self is base or prof, depending on usage, currently no usage seen in Python code"
         """
         @brief Compare two profiles, printing the comparison to stdout
 

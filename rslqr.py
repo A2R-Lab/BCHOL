@@ -317,7 +317,7 @@ class NdLqrSolver(object):
         solver.cholfacts = cholfacts
         solver.solve_time_ms = 0.0
         solver.linalg_time_ms = 0.0
-        solver.profile = ndlqr_NewNdLqrProfile()
+        solver.profile = NdLqrProfile()
         solver.num_threads = omp_get_num_procs() // 2
         return solver
 
@@ -332,7 +332,7 @@ class NdLqrSolver(object):
         ndlqr_ResetNdData(solver.data) # Srishti - inplement ndlqr_ResetNdData (part of nddata)
         ndlqr_ResetNdData(solver.fact)
         ndlqr_ResetNdData(solver.soln)
-        ndlqr_ResetProfile(solver.profile)
+        solver.profile.ndlqr_ResetProfile()
         for i in range(2 * solver.nhorizon):
             MatrixSetConst(solver.diagonals[i], 0.0)
         return
