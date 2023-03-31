@@ -1,35 +1,65 @@
-class NdLqrCholeskyFactors(object):
-#DOUBLE CHECK IT! what cholinfo actually contains?
+import math
 
 
-#rewrote ndlqr_NewCholeskyFactors
-def _init_(self,depth, nhorizon):
-    if(depth<=0):
-        return None  #can we return None at _init_ function or should we omit this code?
-    if(nhorizon <= 0):
-        return None 
-    num_leaf_factors = 2 * nhorizon
-    num_S_factors = 0
-    for level in range (depth) :
-        numleaves = math.pow(depth-level-1)
-        num_S_factors += numleaves
-    numfacts = num_leaf_factors + num_S_factors
-    self.depth = depth
-    self.nhorizon = nhorizon
-    self.cholinfo = None 
-    self.numfacts = None
+class NdLqrCholeskyFactors():
+    def __init__(self, depth, nhorizon):
+        if depth <= 0:
+            return None
+        if nhorizon <= 0:
+            return None
+
+        num_leaf_factors = 2 * nhorizon
+        num_S_factors = 0
+
+        for level in len(depth):
+            numleaves = math.pow(depth - level - 1, 2)
+            num_S_factors += numleaves
+
+        numfacts = num_leaf_factors + num_S_factors
+
+        self.depth = depth
+        self.nhorizon = nhorizon
+        self.numfacts = numfacts
 
 
+# cholfacts is an object of class NdLqrCholeskyFactors
+def ndlqr_GetQFactorizon(cholfacts, index):
+    if cholfacts is None:
+        return -1
+    if index < 0 or index >= cholfacts.nhorizon - 1:
+        return -1
+    # do I need this method?
+    return 0
 
-"""
-ndlqr_GetQFactorization
-"""
-def ndlqr_GetQFactorization:
 
-"""
-ndlqr_GetRFactorization
-"""
+def ndlqr_GetRFactorizon(cholfacts, index):
+    if cholfacts is None:
+        return -1
+    if index < 0 or index >= cholfacts.nhorizon - 1:
+        return -1
+    # do I need this method?
+    return 0
 
-"""
-ndlqr_GetSFactorization
-"""
+
+def ndlqr_GetSFactorization(cholfacts, leaf, level):
+    numleaves = math.pow(cholfacts.depth - level - 1, 2)
+    num_leaf_factors = 2 * cholfacts.nhorizon #?? used for cholinfo
+
+    if cholfacts is None:
+        return -1
+
+    if level < 0 or level >= cholfacts.depth:
+        return -1
+
+    if leaf < 0 or leaf >= numleaves:
+        return -1
+
+    leaf_index = 0
+
+    for lvl in range(level):
+        numleaves = math.pow(cholfacts.depth - lvl - 1, 2)
+        leaf_index += numleaves
+
+    leaf_index += leaf
+
+    return 0
