@@ -21,6 +21,8 @@ class BinaryNode (object):
         """
         mid = (len + 1) // 2
         new_len = mid - 1
+        self.parent = None 
+        self.idx = 0 #DOUBLE CHECK!
         if len > 1:
             self = start + new_len #binaryNode, how can we add BinaryNode* and int??
             left_root = BinaryNode(start, new_len)
@@ -34,8 +36,9 @@ class BinaryNode (object):
             self.right_inds.start = right_root.left_inds.start
             self.right_inds.stop = right_root.right_inds.stop
             self.level = left_root.level + 1
+            
         else:
-            k = self.idx
+            k = start.idx
             self.left_inds.start = k
             self.left_inds.stop = k
             self.right_inds.start = k + 1
@@ -43,7 +46,7 @@ class BinaryNode (object):
             self.level = 0
             self.left_child = None
             self.right_child = None
-
+            
 class OrderedBinarytree(object):
     """
     @brief The binary tree for the rsLQR solver

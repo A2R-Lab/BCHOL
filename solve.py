@@ -9,7 +9,7 @@ def ndqlr_Solve(solver):
     nhorizon = solver.nhorizon
 
     #Solving for independent diagonal block on the lowest level
-    for k in range (nhorizon): #1 to N or 0 to N-1?
+    for k in range (nhorizon-1): #1 to N or 0 to N-1?
         ndlqr_SolveLeaf(solver,k) #line 62 in original code
 
     #Solving factorization
@@ -26,6 +26,7 @@ def ndqlr_Solve(solver):
             index = solver.tree.ndlqr_GetIndexFromLeaf(leaf ,level) #we assume that we call it from ordered binary tree
             ndlqr_FactorInnerProduct(solver.data,solver.fact,index,level, upper_level) #nested_dissection
              
+        #Cholesky factorization
         for leaf in range(numleaves):
             index = solver.tree.ndlqr_GetIndexFromLeaf(leaf,level)
             #get the Sbar Matrix calculated above

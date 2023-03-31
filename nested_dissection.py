@@ -24,7 +24,11 @@ def ndlqr_SolveLeaf(solver, index):
     F.lambda = (F.lambda*-1)
     F.state = (np.zeros(())) #Do we know the dimensions of F matrix
     F.input = np.matrix.copy(C.input)
-    Rchol = ndlqr_GetRFactorizon(solver.cholinfo, 0)
+    Rchol = solver.cholinfo.ndlqr_GetRFactorizon(0)
+    MatrixCholeskyFactorizeWithInfo(R,Rchol) #IMPLEMENT!
+    MatrixCholeskySolveWithInfo(R,F.input,Rchol) #Fu = R\Cu
+    MatrixCholesk
+
    
     Rchol = lianlg.cholesky(R)
     
