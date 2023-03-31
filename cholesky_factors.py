@@ -17,42 +17,43 @@ class NdLqrCholeskyFactors():
 
         numfacts = num_leaf_factors + num_S_factors
 
+        self.cholinfo = []
+        for i in range(numfacts):
+            self.cholinfo.append('None') #??
+
         self.depth = depth
         self.nhorizon = nhorizon
         self.numfacts = numfacts
 
 
-# cholfacts is an object of class NdLqrCholeskyFactors
 def ndlqr_GetQFactorizon(cholfacts, index):
     if cholfacts is None:
-        return -1
+        return None
     if index < 0 or index >= cholfacts.nhorizon - 1:
-        return -1
-    # do I need this method?
-    return 0
+        return None
+
+    return cholfacts.cholinfo[2 * index]
 
 
 def ndlqr_GetRFactorizon(cholfacts, index):
     if cholfacts is None:
-        return -1
+        return None
     if index < 0 or index >= cholfacts.nhorizon - 1:
-        return -1
-    # do I need this method?
-    return 0
+        return None
+
+    return cholfacts.cholinfo[2 * index]
 
 
 def ndlqr_GetSFactorization(cholfacts, leaf, level):
     numleaves = math.pow(cholfacts.depth - level - 1, 2)
-    num_leaf_factors = 2 * cholfacts.nhorizon #?? used for cholinfo
+    num_leaf_factors = 2 * cholfacts.nhorizon
 
     if cholfacts is None:
-        return -1
-
+        return None
     if level < 0 or level >= cholfacts.depth:
-        return -1
-
+        return None
     if leaf < 0 or leaf >= numleaves:
-        return -1
+        return None
 
     leaf_index = 0
 
@@ -62,4 +63,4 @@ def ndlqr_GetSFactorization(cholfacts, leaf, level):
 
     leaf_index += leaf
 
-    return 0
+    return cholfacts.cholinfo[num_leaf_factors + leaf_index]
