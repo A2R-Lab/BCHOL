@@ -64,9 +64,8 @@ class OrderedBinarytree(object):
         self.num_elements # (C type: int) < length of the OrderedBinaryTree::node_list
         self.depth # (C type: int) < total depth of the tree
     """
-
-    #Can we call it _init_ instead? - Yana
     #originally ndlqr_BuildTree
+
     def _init_(self, nhorizon): # (Srishti - "Is N (of C code) = nhorizon (of Python code)? - I think yes, look at .c file")
         """
         @brief Construct a new binary tree for a horizon of length @p N
@@ -75,7 +74,7 @@ class OrderedBinarytree(object):
         @param  N horizon length. Must be a power of 2.
         @return A new binary tree
         """
-        assert(isPowerOfTwo(nhorizon))
+        assert(isPowerOfTwo(nhorizon)) #calling outside function here
         self.node_list = []
         for i in range (nhorizon):
             self.node_list[i].idx = i # (Srishti - "don't we have to make node_list of length `nhorizon` first?")
@@ -86,7 +85,6 @@ class OrderedBinarytree(object):
         # Build the tree
         self.root = BinaryNode(node_list, nhorizon - 1)
 
-    #don't need ndlqr_FreeeTree (Srishti - "why not?", Yana - "Because we dont need to free malloc?")
       
     def ndlqr_GetIndexFromLeaf(self, leaf, level):
         """
@@ -114,15 +112,15 @@ class OrderedBinarytree(object):
     def ndlqr_GetNodeAtLevel (node,index,level):
         if(node.level == level):
             return node
-        elif(node,level>level):
+        elif(node.level>level):
             if(index <= node.idx):
                 return GetNodeAtLevel (node.left_child, index, level)
             else:
-                    return GetNodeAtLevel(node.right_child, index, level)
+                return GetNodeAtLevel(node.right_child, index, level)
         else:
             return GetNodeAtLevel(node.parent, index, level)
 
-    def ndlqr_GetIndexAtLevel(tree, leaf, level):
+    def ndlqr_GetIndexAtLevel(self, leaf, level):
         """
         @brief Get the index in 'level' that corresponds to `index`.
 

@@ -1,7 +1,16 @@
+"""
+
+ """
+
 import math
 
 
 class NdLqrCholeskyFactors():
+    """
+     A struct for storing all of the info for the Cholesky factorization of the rsLQR solver.
+     depth - depth of the binary tree
+     nhorizon - length of the time horizon
+     cholinfo - """
     def __init__(self, depth, nhorizon):
         if depth <= 0:
             return None

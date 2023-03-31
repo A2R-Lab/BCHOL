@@ -2,11 +2,11 @@ def ndlqr_SolveLeaf(solver, index):
     """
     Solve all the equations for the lowest-level diagonal blocks, by timestep
     """
-    Qchol = None 
-    Rchol = None 
+    Qchol = None #choleskyinfo
+    Rchol = None #choleskyinfo
 
     nstates = solver.nstates
-    nhotizon = solver.nhorizon
+    nhorizon = solver.nhorizon
     k = index 
     if (index == 0):
         C = ndlqr_GetNdFactor(solver.data,k, 0)
