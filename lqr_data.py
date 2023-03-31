@@ -35,3 +35,51 @@
   - ndlqr_Getr()
  
  """
+
+
+import numpy as np
+import sys
+
+class LQRData:
+    def __init__(self, nstates, ninputs):
+        self.nstates = nstates
+        self.ninputs = ninputs
+        self.Q = np.zeros(nstates, dtype=np.float64)
+        self.R = np.zeros(ninputs, dtype=np.float64)
+        self.q = np.zeros(nstates, dtype=np.float64)
+        self.r = np.zeros(ninputs, dtype=np.float64)
+        self.c = np.zeros(1, dtype=np.float64)
+        self.A = np.zeros((nstates, nstates), dtype=np.float64)
+        self.B = np.zeros((nstates, ninputs), dtype=np.float64)
+        self.d = np.zeros(nstates, dtype=np.float64)
+
+    def ndlqr_InitializeLQRData(self, Q, R, q, r, c, A, B, d):
+        nstates = self.nstates
+        ninputs = self.ninputs
+        np.copyto(self.Q, Q)
+        np.copyto(self.R, R)
+        np.copyto(self.q, q)
+        np.copyto(self.r, r)
+        np.copyto(self.c, c)
+        np.copyto(self.A, A)
+        np.copyto(self.B, B)
+        np.copyto(self.d, d)
+
+    def __str__(self):
+        return (f"LQR Data with n={self.nstates}, m={self.ninputs}:\n"
+                f"Q = {self.Q}\n"
+                f"R = {self.R}\n"
+                f"q = {self.q}\n"
+                f"r = {self.r}\n"
+                f"c = {self.c}\n"
+                f"A = {self.A}\n"
+                f"B = {self.B}\n"
+                f"d = {self.d}"
+               )
+
+def ndlqr_CopyLQRData(dest, src):
+  if dest.nstates != src.nstates or dest.ninputs != src.ninputs:
+    print(f"Can't copy LQRData of different sizes: ({dest.nstates},{dest.ninputs}) and ({src.nstates},{src.ninputs}).", file=sys.stderr)
+    return -1
+  dest.ndlqr_InitializeLQRData(src.Q, src.R, src.q, src.r, src.c, src.A, src.B, src.d)
+  return 0
