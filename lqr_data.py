@@ -44,8 +44,8 @@ class LQRData:
     def __init__(self, nstates, ninputs):
         self.nstates = nstates
         self.ninputs = ninputs
-        self.Q = np.zeros(nstates, dtype=np.float64)
-        self.R = np.zeros(ninputs, dtype=np.float64)
+        self.Q = np.zeros((nstates, nstates), dtype=np.float64)
+        self.R = np.zeros((ninputs, ninputs), dtype=np.float64)
         self.q = np.zeros(nstates, dtype=np.float64)
         self.r = np.zeros(ninputs, dtype=np.float64)
         self.c = np.zeros(1, dtype=np.float64)
