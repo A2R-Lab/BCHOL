@@ -54,8 +54,6 @@ class LQRData:
         self.d = np.zeros(nstates, dtype=np.float64)
 
     def ndlqr_InitializeLQRData(self, Q, R, q, r, c, A, B, d):
-        nstates = self.nstates
-        ninputs = self.ninputs
         np.copyto(self.Q, Q)
         np.copyto(self.R, R)
         np.copyto(self.q, q)
