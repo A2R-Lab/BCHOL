@@ -13,9 +13,9 @@ class LQRProblem (object):
     ndlqr_InitializeLQRProblem().
     """
     def _init_(self):
-        nhorizon
-        x0
-        lqrdata
+        self.nhorizon
+        self.x0
+        self.lqrdata
 
     def ndlqr_InitializeLQRProblem(self, lqrproblem, x0, lqrdata):
         """
