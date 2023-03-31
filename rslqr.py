@@ -415,10 +415,28 @@ class NdLqrSolver(object):
         solver.solve_time_ms = 0.0
         solver.linalg_time_ms = 0.0
         solver.profile = ndlqr_NewNdLqrProfile()
-        solver.num_threads = omp_get_num_procs() / 2
+        solver.num_threads = omp_get_num_procs() // 2
         return solver
 
-    def ndlqr_FreeNdLqrSolver(self, solver): # (Srishti - "not sure how to do this -> Leaving it empty for now")
+    def ndlqr_ResetSolver(self, solver):
+        """
+        @brief Resets the rsLQR solver
+
+        Resets all of the data in the solver to how it was when it was first initialized.
+
+        @param solver
+        """
+        ndlqr_ResetNdData(solver.data) # Srishti - inplement ndlqr_ResetNdData (part of nddata)
+        ndlqr_ResetNdData(solver.fact)
+        ndlqr_ResetNdData(solver.soln)
+        ndlqr_ResetProfile(solver.profile)
+        for i in range(2 * solver.nhorizon):
+            MatrixSetConst(solver.diagonals[i], 0.0)
+        return
+
+    # Srishti - "unnecessary function, commenting it out"
+    '''
+    def ndlqr_FreeNdLqrSolver(self, solver):
         """
         @brief Deallocates the memory for the solver.
 
@@ -426,8 +444,9 @@ class NdLqrSolver(object):
         @return 0 if successful.
         @post solver == NULL
         """
+    '''
 
-    def ndlqr_InitializeWithLQRProblem(self, lqrprob, solver): # (Srishti - "big function -> Will do later")
+    def ndlqr_InitializeWithLQRProblem(self, lqrprob, solver):
         """
         @brief Initialize the solver with data from an LQR Problem.
 
@@ -436,15 +455,70 @@ class NdLqrSolver(object):
         @param solver An initialized solver.
         @return 0 if successful
         """
+        nstates = solver.nstates
+        ninputs = solver.ninputs
+        if lqrprob.nhorizon != solver.nhorizon:
+            return -1
 
-    def ndlqr_ResetSolver(self, solver): # (Srishti - "complex function -> Will do later")
-        """
-        @brief Resets the rsLQR solver
+        # Create a minux identity matrix for copying into the original matrix
+        minus_identity = NewMatrix(nstates, nstates)
+        MatrixSetConst(&minus_identity, 0)
+        for i in range(nstates)
+            MatrixSetElement(minus_identity, i, i, -1)
 
-        Resets all of the data in the solver to how it was when it was first initialized.
+        # Loop over the knot points, copying the LQR data into the matrix data
+        # and populating the right-hand-side vector
+        Cfactor = 
+        zfactor = 
+        ndlqr_GetNdFactor(solver.soln, 0, 0, zfactor)
+        zfactor.lambda.data = lqrprob.x0
+        k = 
+        for k in range(solver.nhorizon - 1):
+            if nstates != lqrprob.lqrdata[k].nstates:
+                return -1
+            if ninputs != lqrprob.lqrdata[k].ninputs:
+                return -1
 
-        @param solver
-        """
+            # Copy data into C factors and rhs vector from LQR data
+            level = ndlqr_GetIndexLevel(solver.tree, k)
+            ndlqr_GetNdFactor(solver.data, k, level, Cfactor)
+            ndlqr_GetNdFactor(solver.soln, k, 0, zfactor)
+            A = [nstates, nstates, lqrprob.lqrdata[k].A]
+            B = [nstates, ninputs, lqrprob.lqrdata[k].B]
+            MatrixCopyTranspose(Cfactor.state, A)
+            MatrixCopyTranspose(Cfactor.input, B)
+            zfactor.state.data = lqrprob.lqrdata[k].q
+            zfactor.input.data = lqrprob.lqrdata[k].r
+
+            # Copy Q and R into diagonals
+            Q = solver.diagonals[2 * k]
+            R = solver.diagonals[2 * k + 1]
+            MatrixSetConst(Q, 0)
+            MatrixSetConst(R, 0)
+            for i in range(nstates):
+                MatrixSetElement(Q, i, i, lqrprob.lqrdata[k].Q[i])
+            for i in range(ninputs):
+                MatrixSetElement(&R, i, i, lqrprob.lqrdata[k].R[i])
+
+            # Next time step
+            ndlqr_GetNdFactor(solver.data, k + 1, level, Cfactor)
+            ndlqr_GetNdFactor(solver.soln, k + 1, 0, zfactor)
+            Cfactor.state.data = minus_identity.data
+            MatrixSetConst(Cfactor.input, 0.0)
+            zfactor.lambda.data = lqrprob.lqrdata[k].d
+
+        # Terminal step
+        zfactor.state.data = lqrprob.lqrdata[k].q
+        Q = solver.diagonals[2 * k]
+        MatrixSetConst(Q, 0)
+        for i in range(nstates):
+            MatrixSetElement(Q, i, i, lqrprob.lqrdata[k].Q[i])
+
+        # Negate the entire rhs vector
+        for i in range(solver.nvars):
+            solver.soln.data[i] = solver.soln.data[i] * (-1)
+
+        return 0
 
     def ndlqr_PrintSolveSummary(self, solver):
         """
