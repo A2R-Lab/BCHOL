@@ -137,7 +137,16 @@ class NdLqrSolver(object):
     - ndlqr_PrintSolveProfile()
     - ndlqr_GetProfile()
     """
-    def _init_(self):
+    def _init_(self, nstates, ninputs, nhorizon): # Called `ndlqr_NewNdLqrSolver` in C program
+        """
+        @brief Create a new solver, allocating all the required memory.
+
+        Must be followed by a later call to ndlqr_FreeNdLqrSolver().
+
+        @param nstates Number of elements in the state vector
+        @param ninputs Number of control inputs
+        @param nhorizon Length of the time horizon. Must be a power of 2.
+        @return A pointer to the new solver
         self.nstates # < size of state vector
         self.ninputs # < number of control inputs
         self.nhorizon # < length of the time horizon
@@ -153,20 +162,8 @@ class NdLqrSolver(object):
         self.linalg_time_ms
         self.profile
         self.num_threads # < Number of threads used by the solver.
-
-    def ndlqr_NewNdLqrSolver(self, nstates, ninputs, nhorizon):
-        """
-        @brief Create a new solver, allocating all the required memory.
-
-        Must be followed by a later call to ndlqr_FreeNdLqrSolver().
-
-        @param nstates Number of elements in the state vector
-        @param ninputs Number of control inputs
-        @param nhorizon Length of the time horizon. Must be a power of 2.
-        @return A pointer to the new solver
         """
         tree = ndlqr_BuildTree(nhorizon)
-        solver = 
         nvars = (2 * nstates + ninputs) * nhorizon - ninputs
 
         diag_size = (nstates * nstates + ninputs * ninputs) * nhorizon
@@ -183,24 +180,23 @@ class NdLqrSolver(object):
         
         cholfacts = ndlqr_NewCholeskyFactors(tree.depth, nhorizon)
 
-        solver.nstates = nstates
-        solver.ninputs = ninputs
-        solver.nhorizon = nhorizon
-        solver.depth = tree.depth
-        solver.nvars = nvars
-        solver.tree = tree
-        solver.diagonals = diagonals
-        solver.data = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
-        solver.fact = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
-        solver.soln = ndlqr_NewNdData(nstates, ninputs, nhorizon, 1)
-        solver.cholfacts = cholfacts
-        solver.solve_time_ms = 0.0
-        solver.linalg_time_ms = 0.0
-        solver.profile = NdLqrProfile()
-        solver.num_threads = omp_get_num_procs() // 2
-        return solver
+        self.nstates = nstates
+        self.ninputs = ninputs
+        self.nhorizon = nhorizon
+        self.depth = tree.depth
+        self.nvars = nvars
+        self.tree = tree
+        self.diagonals = diagonals
+        self.data = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
+        self.fact = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
+        self.soln = ndlqr_NewNdData(nstates, ninputs, nhorizon, 1)
+        self.cholfacts = cholfacts
+        self.solve_time_ms = 0.0
+        self.linalg_time_ms = 0.0
+        self.profile = NdLqrProfile()
+        self.num_threads = omp_get_num_procs() // 2
 
-    def ndlqr_ResetSolver(self, solver):
+    def ndlqr_ResetSolver(self):
         """
         @brief Resets the rsLQR solver
 
@@ -208,12 +204,12 @@ class NdLqrSolver(object):
 
         @param solver
         """
-        ndlqr_ResetNdData(solver.data) # Srishti - inplement ndlqr_ResetNdData (part of nddata)
-        ndlqr_ResetNdData(solver.fact)
-        ndlqr_ResetNdData(solver.soln)
-        solver.profile.ndlqr_ResetProfile()
-        for i in range(2 * solver.nhorizon):
-            MatrixSetConst(solver.diagonals[i], 0.0)
+        ndlqr_ResetNdData(self.data) # Srishti - inplement ndlqr_ResetNdData (part of nddata)
+        ndlqr_ResetNdData(self.fact)
+        ndlqr_ResetNdData(self.soln)
+        self.profile.ndlqr_ResetProfile()
+        for i in range(2 * self.nhorizon):
+            MatrixSetConst(self.diagonals[i], 0.0)
         return
 
     # Srishti - "unnecessary function, commenting it out"
@@ -228,7 +224,7 @@ class NdLqrSolver(object):
         """
     '''
 
-    def ndlqr_InitializeWithLQRProblem(self, lqrprob, solver):
+    def ndlqr_InitializeWithLQRProblem(self, lqrprob): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Initialize the solver with data from an LQR Problem.
 
@@ -237,9 +233,9 @@ class NdLqrSolver(object):
         @param solver An initialized solver.
         @return 0 if successful
         """
-        nstates = solver.nstates
-        ninputs = solver.ninputs
-        if lqrprob.nhorizon != solver.nhorizon:
+        nstates = self.nstates
+        ninputs = self.ninputs
+        if lqrprob.nhorizon != self.nhorizon:
             return -1
 
         # Create a minux identity matrix for copying into the original matrix
@@ -252,19 +248,19 @@ class NdLqrSolver(object):
         # and populating the right-hand-side vector
         Cfactor = 
         zfactor = 
-        ndlqr_GetNdFactor(solver.soln, 0, 0, zfactor)
+        ndlqr_GetNdFactor(self.soln, 0, 0, zfactor)
         zfactor.lambda.data = lqrprob.x0
         k = 
-        for k in range(solver.nhorizon - 1):
+        for k in range(self.nhorizon - 1):
             if nstates != lqrprob.lqrdata[k].nstates:
                 return -1
             if ninputs != lqrprob.lqrdata[k].ninputs:
                 return -1
 
             # Copy data into C factors and rhs vector from LQR data
-            level = ndlqr_GetIndexLevel(solver.tree, k)
-            ndlqr_GetNdFactor(solver.data, k, level, Cfactor)
-            ndlqr_GetNdFactor(solver.soln, k, 0, zfactor)
+            level = ndlqr_GetIndexLevel(self.tree, k)
+            ndlqr_GetNdFactor(self.data, k, level, Cfactor)
+            ndlqr_GetNdFactor(self.soln, k, 0, zfactor)
             A = [nstates, nstates, lqrprob.lqrdata[k].A]
             B = [nstates, ninputs, lqrprob.lqrdata[k].B]
             MatrixCopyTranspose(Cfactor.state, A)
@@ -273,8 +269,8 @@ class NdLqrSolver(object):
             zfactor.input.data = lqrprob.lqrdata[k].r
 
             # Copy Q and R into diagonals
-            Q = solver.diagonals[2 * k]
-            R = solver.diagonals[2 * k + 1]
+            Q = self.diagonals[2 * k]
+            R = self.diagonals[2 * k + 1]
             MatrixSetConst(Q, 0)
             MatrixSetConst(R, 0)
             for i in range(nstates):
@@ -283,26 +279,26 @@ class NdLqrSolver(object):
                 MatrixSetElement(&R, i, i, lqrprob.lqrdata[k].R[i])
 
             # Next time step
-            ndlqr_GetNdFactor(solver.data, k + 1, level, Cfactor)
-            ndlqr_GetNdFactor(solver.soln, k + 1, 0, zfactor)
+            ndlqr_GetNdFactor(self.data, k + 1, level, Cfactor)
+            ndlqr_GetNdFactor(self.soln, k + 1, 0, zfactor)
             Cfactor.state.data = minus_identity.data
             MatrixSetConst(Cfactor.input, 0.0)
             zfactor.lambda.data = lqrprob.lqrdata[k].d
 
         # Terminal step
         zfactor.state.data = lqrprob.lqrdata[k].q
-        Q = solver.diagonals[2 * k]
+        Q = self.diagonals[2 * k]
         MatrixSetConst(Q, 0)
         for i in range(nstates):
             MatrixSetElement(Q, i, i, lqrprob.lqrdata[k].Q[i])
 
         # Negate the entire rhs vector
-        for i in range(solver.nvars):
-            solver.soln.data[i] = solver.soln.data[i] * (-1)
+        for i in range(self.nvars):
+            self.soln.data[i] = self.soln.data[i] * (-1)
 
         return 0
 
-    def ndlqr_PrintSolveSummary(self, solver):
+    def ndlqr_PrintSolveSummary(self): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Prints a summary of the solve
 
@@ -315,23 +311,23 @@ class NdLqrSolver(object):
         print("-------------------")
         print("  The rsLQR solver is a parallel solver for LQR problems")
         print("  developed by the RExLab at Carnegie Mellon University.\n")
-        print(f"  Solve time:  {solver.solve_time_ms} ms")
+        print(f"  Solve time:  {self.solve_time_ms} ms")
         if kMatrixLinearAlgebraTimingEnabled:
-            print(f"  LinAlg time: {solver.linalg_time_ms} ms ({100.0 * solver.linalg_time_ms / solver.solve_time_ms}%% of total)")
-        print(f"  Solved with {solver.num_threads} threads.")
+            print(f"  LinAlg time: {self.linalg_time_ms} ms ({100.0 * self.linalg_time_ms / self.solve_time_ms}%% of total)")
+        print(f"  Solved with {self.num_threads} threads.")
         print("  ")
         MatrixPrintLinearAlgebraLibrary()
         return
 
-    def ndlqr_GetNumVars(self, solver):
+    def ndlqr_GetNumVars(self): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Gets the total number of decision variables for the problem.
 
         @param solver
         """
-        return solver.nvars
+        return self.nvars
 
-    def ndlqr_SetNumThreads(self, solver, num_threads):
+    def ndlqr_SetNumThreads(self, num_threads): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Set the number of threads to be used during the solve
 
@@ -343,23 +339,23 @@ class NdLqrSolver(object):
         @param num_threads requested number of threads
         @return 0 if successful
         """
-        if not solver:
+        if not self:
             return -1
-        solver.num_threads = num_threads
+        self.num_threads = num_threads
         return 0
 
-    def ndlqr_GetNumThreads(self, solver):
+    def ndlqr_GetNumThreads(self): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Get the number of threads used during the rsLQR solve
 
         @param solver A solver which has already been initialized and solved
         @return number of OpenMP threads used the by solver
         """
-        if not solver:
+        if not self:
             return -1
-        return solver.num_threads
+        return self.num_threads
 
-    def ndlqr_PrintSolveProfile(self, solver):
+    def ndlqr_PrintSolveProfile(self): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Prints a summary of how long individual components took
 
@@ -367,12 +363,12 @@ class NdLqrSolver(object):
         @param solver A solver which has already been initialized and solved
         @return 0 if successful
         """
-        if not solver:
+        if not self:
             return -1
-        ndlqr_PrintProfile(solver.profile)
+        ndlqr_PrintProfile(self.profile)
         return 0
 
-    def ndlqr_GetProfile(self, solver):
+    def ndlqr_GetProfile(self): # Srishti - Usage should be modified according to the modified Python code here
         """
         @brief Ge the internal profile data from a solve
 
@@ -380,4 +376,4 @@ class NdLqrSolver(object):
         @return A profile object containing timing information about the solve
                 See NdLqrProfile for more info.
         """
-        return solver.profile
+        return self.profile
