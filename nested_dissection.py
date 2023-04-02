@@ -1,17 +1,22 @@
-def ndlqr_SolveLeaf(solver, index):
-    """
-    Solve all the equations for the lowest-level diagonal blocks, by timestep
-    """
-    Qchol = None #choleskyinfo
-    Rchol = None #choleskyinfo
+def MatrixSetConst(A, const):
+  for i in A:
+    for j in A[i]:
+      A[i][j] = const 
 
-    nstates = solver.nstates
-    nhorizon = solver.nhorizon
-    k = index 
-    if (index == 0):
-        C = ndlqr_GetNdFactor(solver.data,k, 0)
-        F = ndlqr_GetNdFactor(solver.fact,k,0)
-        z = ndlqr_GetNdFactor(solver.soln,k,0)
+def ndlqr_SolveLeaf(solver, index):
+  """
+  Solve all the equations for the lowest-level diagonal blocks, by timestep
+  """
+  Qchol = None #choleskyinfo
+  Rchol = None #choleskyinfo
+
+  nstates = solver.nstates
+  nhorizon = solver.nhorizon
+  k = index 
+  if (index == 0):
+    C = ndlqr_GetNdFactor(solver.data,k, 0)
+    F = ndlqr_GetNdFactor(solver.fact,k,0)
+    z = ndlqr_GetNdFactor(solver.soln,k,0)
     Q = solver.diagonals[2*k]
     R = solver.diagonals[2*k+1]
 
@@ -22,82 +27,62 @@ def ndlqr_SolveLeaf(solver, index):
     # [      R ] [Fu]   [Cu]   [ B']    [ R \ B']
     F.lambda = np.matrix.copy(C.state) 
     F.lambda = (F.lambda*-1)
-    F.state = (np.zeros(())) #Do we know the dimensions of F matrix
+    MatrixSetConst(F.state, 0.0)
     F.input = np.matrix.copy(C.input)
     Rchol = solver.cholinfo.ndlqr_GetRFactorizon(0)
-    MatrixCholeskyFactorizeWithInfo(R,Rchol) #IMPLEMENT!
+    Rchol =  #IMPLEMENT!
     MatrixCholeskySolveWithInfo(R,F.input,Rchol) #Fu = R\Cu
-    MatrixCholesk
-
+    MatrixCholeskySolveWithInfo(R, z.input, Rchol)
    
-    Rchol = lianlg.cholesky(R)
-    
-    MatrixCholeskySolveWithInfo(R, &F->input, Rchol);  // Fu = R \ Cu
-    MatrixCholeskySolveWithInfo(R, &z->input, Rchol);  // zu = R \ zu
+    #Rchol = lianlg.cholesky(R) What is this doing here?
+    zy_temp = np.matrix.copy(C.lambda) # grab an unused portion of the matrix data
+    zy_temp=np.matrix.copy(z.lambda) #why do we immediately change the matrix?
+    z.lambda = np.matrix.copy(z.state) #MatrixCopy(&z->lambda, &z->state);
+    z.lambda = -Q*zy_temp # MatrixMultiply(Q, &zy_temp, &z->lambda, 0, 0, -1.0,  -1.0);  // zy = - Q * zy - zx
+    z.state =np.matrix.copy(zy_temp)
+    z.state = z.state*(-1)
+    Qchol = solver.cholfacts
+    MatrixCholeskyFactorizeWithInfo(Q, Qchol) #IMPLEMENT
 
-    Matrix zy_temp = {nstates, 1,
-                      C->lambda.data};  // grab an unused portion of the matrix data
-    MatrixCopy(&zy_temp, &z->lambda);
-    z.state = z.lambda #MatrixCopy(&z->lambda, &z->state);
-   zy.temp =Q*z.lambda -z*x# MatrixMultiply(Q, &zy_temp, &z->lambda, 0, 0, -1.0,
-                 #  -1.0);  // zy = - Q * zy - zx
+  else: #line 60 in srs
+    level = 0
 
-   zy_te MatrixCopy(&z->state, &zy_temp);
-    MatrixScaleByConst(&z->state, -1.0);  // zx = -zy
-    ndlqr_GetQFactorizon(solver->cholfacts, 0, &Qchol);
-    MatrixCholeskyFactorizeWithInfo(Q, Qchol);
+    Q = solver.diagonals[2 * k]
+    Qchol =ndlqr_GetQFactorizon(solver.cholfacts,k) #check how we implemented GetQFactorization
+    MatrixCholeskyFactorizeWithInfo(Q, Qchol) #Implement
 
-  } else {
-    int level = 0;
+    z = ndlqr_GetNdFactor(solver.soln,k,0)
 
-    Q = &solver->diagonals[2 * k];
-    ndlqr_GetQFactorizon(solver->cholfacts, k, &Qchol);
-    MatrixCholeskyFactorizeWithInfo(Q, Qchol);
-
-    ndlqr_GetNdFactor(solver->soln, k, 0, &z);
-
-    // All the terms that don't apply at the last time step
-    if (k < nhorizon - 1) {
-      level = ndlqr_GetIndexLevel(&solver->tree, k);
+    #All the terms that don't apply at the last time step
+    if (k < nhorizon - 1):
+      level = ndlqr_GetIndexLevel(solver.tree, k)
       ndlqr_GetNdFactor(solver->data, k, level, &C);
       ndlqr_GetNdFactor(solver->fact, k, level, &F);
 
       R = &solver->diagonals[2 * k + 1];
-      ndlqr_GetRFactorizon(solver->cholfacts, k, &Rchol);
-      MatrixCholeskyFactorizeWithInfo(R, Rchol);
+      C = ndlqr_GetRFactorizon(solver.cholfacts, k)
+      MatrixCholeskyFactorizeWithInfo(R, Rchol) #IMPLEMENT
 
-      MatrixCholeskySolveWithInfo(R, &z->input,
-                                  Rchol);  // solve zu = R \ zu  (R \ -r)
-      MatrixCopy(&F->state, &C->state);
-      MatrixCholeskySolveWithInfo(Q, &F->state,
-                                  Qchol);  // solve Fx = Q \ Cx  (Q \ A')
-      MatrixCopy(&F->input, &C->input);
-      MatrixCholeskySolveWithInfo(R, &F->input,
-                                  Rchol);  // solve Fu = Q \ Cu  (R \ B')
-    }
-    // Only term at the last time step
-    MatrixCholeskySolveWithInfo(Q, &z->state,
-                                Qchol);  // solve zx = Q \ zx  (Q \ -q)
+      MatrixCholeskySolveWithInfo(R, z.input Rchol) # solve zu = R \ zu  (R \ -r)
+      F.state = np.matrix.copy(C.state)
+      MatrixCholeskySolveWithInfo(Q, F.state,Qchol) # solve Fx = Q \ Cx  (Q \ A')
+      F.input =np.matrix.copy(C.input)
+      MatrixCholeskySolveWithInfo(R, F.input,Rchol) # solve Fu = Q \ Cu  (R \ B')
+    #// Only term at the last time step
+    MatrixCholeskySolveWithInfo(Q, z.state,Qchol) # solve zx = Q \ zx  (Q \ -q)
 
-    // Solve for the terms from the dynamics of the previous time step
+    """
+    Solve for the terms from the dynamics of the previous time step
     // NOTE: This is -I on the state for explicit integration
     //       For implicit integrators we'd use the A2, B2 partials wrt the next
-    //       state and control
-    int prev_level = ndlqr_GetIndexLevel(&solver->tree, k - 1);
-    ndlqr_GetNdFactor(solver->data, k, prev_level, &C);
-    ndlqr_GetNdFactor(solver->fact, k, prev_level, &F);
-    MatrixCopy(&F->state, &C->state);  // the -I matrix
-    MatrixCholeskySolveWithInfo(Q, &F->state,
-                                Qchol);  // solve Q \ -I from previous time step
-    MatrixSetConst(&F->input, 0.0);      // Initialize the B2 matrix to zeros
-  }
-  return 0;
-}
-
-
-    return
-
-def ndlqr_SolveLeaves(solver):
+    //       state and control"""
+    prev_level = ndlqr_GetIndexLevel(solver.tree, k - 1)
+    C = ndlqr_GetNdFactor(solver.data, k, prev_level)
+    F = ndlqr_GetNdFactor(solver.fact, k, prev_level)
+    F.state = np.matrix.copy(C.state)#MatrixCopy(&F->state, &C->state);  // the -I matrix
+    MatrixCholeskySolveWithInfo(Q, F.state,Qchol)  # solve Q \ -I from previous time step
+    MatrixSetConst(F.input, 0.0) #   // Initialize the B2 matrix to zeros
+  return 0
 
 def ndlqr_FactorInnerProduct(data,fact,index,data_level,fact_level):
 
