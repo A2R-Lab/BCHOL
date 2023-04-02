@@ -29,11 +29,10 @@ class LQRProblem (object):
             return None
 
         for k in range(nhorizon):
-            lqrdata[k] = ndlqr_NewLQRData(nstates, ninputs)
+            self.lqrdata.append(ndlqr_NewLQRData(nstates, ninputs))
 
         self.nhorizon = nhorizon
         self.x0 = None
-        self.lqrdata = lqrdata
         return
 
     def ndlqr_InitializeLQRProblem(self, x0, lqrdata):
