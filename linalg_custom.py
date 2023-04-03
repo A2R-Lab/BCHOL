@@ -15,13 +15,9 @@ clap_CholeskyFactorize - just call lianlg.cholesky(a)
  - will raise an erroe if it can't decompose
  """
 
-#NEED TO check
- """
- clap_CholeskySolve
- """
- def clap_CholeskySolve(L,b):
-    
-
- """
- clap_LowerTriBackSub - scipy.lianlg.solve_triangular
- """
+def clap_CholeskySolve(L, b):
+    # Implements: clap_LowerTriBackSub(L, b, 0)
+    scipy.linalg.solve_triangular(L, b, trans=0, overwrite_b=True)
+    # Implements: clap_LowerTriBackSub(L, b, 1)
+    scipy.linalg.solve_triangular(L, b, trans=1, overwrite_b=True)
+    return 0
