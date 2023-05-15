@@ -1,19 +1,17 @@
 import math
 
 
-class NdLqrCholeskyFactors():
-    def __init__(self, depth, nhorizon):
+class CholeskyFactors():
+  """
+  Stores a list of CholeskyInfo structs for rsLQR solver. "Isn't there only one possible decomposition"-Yana"""
+  def __init__(self, depth, nhorizon):
         if depth <= 0:
             return None
         if nhorizon <= 0:
             return None
 
         num_leaf_factors = 2 * nhorizon
-        num_S_factors = 0
-
-        for level in len(depth):
-            numleaves = math.pow(depth - level - 1, 2)
-            num_S_factors += numleaves
+        num_S_factors = nhorizon - 1
 
         numfacts = num_leaf_factors + num_S_factors
 
@@ -25,7 +23,7 @@ class NdLqrCholeskyFactors():
         self.nhorizon = nhorizon
         self.numfacts = numfacts
 
-
+#ALL FUNCTIONS ARE GLOBAL!
 def ndlqr_GetQFactorizon(cholfacts, index):
     if cholfacts is None:
         return None
@@ -42,7 +40,6 @@ def ndlqr_GetRFactorizon(cholfacts, index):
         return None
 
     return cholfacts.cholinfo[2 * index]
-
 
 def ndlqr_GetSFactorization(cholfacts, leaf, level):
     numleaves = math.pow(cholfacts.depth - level - 1, 2)
@@ -62,5 +59,4 @@ def ndlqr_GetSFactorization(cholfacts, leaf, level):
         leaf_index += numleaves
 
     leaf_index += leaf
-
     return cholfacts.cholinfo[num_leaf_factors + leaf_index]
