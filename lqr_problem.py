@@ -13,7 +13,7 @@ class LQRProblem (object):
     ndlqr_InitializeLQRProblem().
     """
 
-    def _init_(self, nstates, ninputs, nhorizon):
+    def __init__(self, nstates, ninputs, nhorizon):
         """
         @brief Initialize a new LQRProblem data with unitialized data
 
@@ -26,15 +26,16 @@ class LQRProblem (object):
         """
         if nhorizon <= 0:
             print("ERROR: Horizon must be positive.")
-            return None
-
+            return None # how can we exit _init_ in case of mistake?
+       
+        self.lqrdata = []
         for k in range(nhorizon):
-            self.lqrdata.append(ndlqr_NewLQRData(nstates, ninputs))
+            self.lqrdata.append(LQRData(nstates, ninputs))
 
         self.nhorizon = nhorizon
         self.x0 = None
-        return
-
+        
+    #should be _init_
     def ndlqr_InitializeLQRProblem(self, x0, lqrdata):
         """
         @brief Initialize the problem with an initial state and the LQR data
@@ -45,6 +46,9 @@ class LQRProblem (object):
         @return 0 if successful
         """
         for k  in range(self.nhorizon):
-            ndlqr_CopyLQRData(self.lqrdata[k], lqrdata[k])
+            lqrdata[k]["A"] = np.array(lqrdata[k]["A"]).T
+            lqrdata[k]["B"] = np.array(lqrdata[k]["B"]).T
+            self.lqrdata[k].ndlqr_InitializeLQRData(lqrdata[k]["Q"], lqrdata[k]["R"], lqrdata[k]["q"], lqrdata[k]["r"], lqrdata[k]["c"], lqrdata[k]["A"], lqrdata[k]["B"], lqrdata[k]["d"])
+            # ndlqr_CopyLQRData(self.lqrdata[k], lqrdata[k])
         self.x0 = x0
         return 0
