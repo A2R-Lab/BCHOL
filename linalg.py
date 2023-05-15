@@ -1,4 +1,4 @@
-# Do we even need CholeskyInfo class?
+# UNNESSARY!
 
 def MatrixCholeskySolve(A, b):
     """
