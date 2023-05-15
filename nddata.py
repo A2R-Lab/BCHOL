@@ -21,13 +21,13 @@ class NdFactor(object):
     Internally, the solver stores arrays of these objects, which allow the solver
     to extract chunks out of the original matrix data, by time step.
     """
-    def _init_(self): # Srishti - how is this done??
-        self.lambda # Srishti - check if lambda is a keyword < (n,w) block for the dual variables
-        self.state # < (n,w) block for the state variables
-        self.input # < (m,w) block for the control input variables
+    def __init__(self): # Srishti - how is this done??
+        self.lambdas = []# Srishti - check if lambda is a keyword < (n,w) block for the dual variables
+        self.state = []# < (n,w) block for the state variables
+        self.input = []# < (m,w) block for the control input variables
 
     def ndlqr_GetLambdaFactor(self):
-        return self.lambda
+        return self.lambdas
 
     def ndlqr_GetStateFactor(self):
         return self.state
@@ -68,7 +68,7 @@ class NdData(object):
     - ndlqr_FreeNdData()
     - ndlqr_GetNdFactor()
     - ndlqr_ResetNdFactor()
-    """
+    
     def _init_(self):
         self.nstates    #< size of state vector
         self.ninputs    #< number of control inputs
@@ -77,8 +77,8 @@ class NdData(object):
         self.width      #< width of each factor. Will be `n` for matrix data and typically 1 for the right-hand-side vector.
         self.data       #< pointer to entire chunk of allocated memory
         self.factors  #< (nsegments, depth) array of factors. Stored in column-order.
-
-    def ndlqr_NewNdData(self, nstates, ninputs, nhorizon, width):
+"""
+    def __init__(self, nstates, ninputs, nhorizon, width):
         """
         @brief Initialize the NdData structure
 
@@ -95,7 +95,7 @@ class NdData(object):
         nsegments = nhorizon - 1
         if nstates <= 0 or ninputs <= 0 or nsegments <= 0:
             return None
-        if not IsPowerOfTwo(nhorizon):
+        if not isPowerOfTwo(nhorizon):
             print("ERROR: Number of segments must be one less than a power of 2.")
             return None
 
@@ -104,51 +104,46 @@ class NdData(object):
         if width == 1:
             depth = 1
         else:
-            depth = LogOfTwo(nhorizon)
+            depth = int(math.log2(nhorizon))
 
         # Allocate one large block of memory for the data
         numfactors = nhorizon * depth
         factorsize = (2 * nstates + ninputs) * width
-        data = # Srishti - "how to do this?"
+        data = []# Srishti - "how to do this?"
+        for i in range(numfactors * factorsize):
+          data.append(0);
 
         # Create the factors using the allocated memory
-        factors = # Srishti - "how to do this?"
+        factors = [] # Srishti - "how to do this?"
         for i in range(numfactors):
-            factordata = data + i * factorsize
-            factors[i].lambda.rows = nstates
-            factors[i].lambda.cols = width
-            factors[i].lambda.data = factordata
-            factors[i].state.rows = nstates
-            factors[i].state.cols = width
-            factors[i].state.data = factordata + nstates * width
-            factors[i].input.rows = ninputs
-            factors[i].input.cols = width
-            factors[i].input.data = factordata + 2 * (nstates * width)
+            factordata = data[i * factorsize]
+            factors.append(NdFactor())
+            factors[i].lambdas = np.zeros((nstates, width))
+            factors[i].state = np.zeros((nstates, width))
+            factors[i].input = np.zeros((ninputs, width))
 
         # Create the NdData struct
-        nddata = # Srishti - "how to do this?"
-        nddata.nstates = nstates
-        nddata.ninputs = ninputs
-        nddata.nsegments = nsegments
-        nddata.depth = depth
-        nddata.width = width
-        nddata.data = data
-        nddata.factors = factors
-        return nddata
+        self.nstates = nstates
+        self.ninputs = ninputs
+        self.nsegments = nsegments
+        self.depth = depth
+        self.width = width
+        self.data = data
+        self.factors = factors
 
-    def ndlqr_ResetNdData(self, nddata):
+    def ndlqr_ResetNdData(self):
         """
         @brief Resets all of the memory for an NdData to zero.
 
         @param nddata Initialized NdData structure
         """
-        nhorizon = nddata.nsegments + 1
-        numfactors = nhorizon * nddata.depth
-        factorsize = (2 * nddata.nstates + nddata.ninputs) * nddata.width
+        nhorizon = self.nsegments + 1
+        numfactors = nhorizon * self.depth
+        factorsize = (2 * self.nstates + self.ninputs) * self.width
         for i in range(numfactors * factorsize): # Srishti - "verify whether this is correct"
-            nddata.data[i] = 0
+            self.data[i] = 0
 
-    def ndlqr_GetNdFactor(self, nddata, index, level, factor):
+    def ndlqr_GetNdFactor(self, index, level):
         """
         @brief Retrieve an individual NdFactor out of the NdData
 
@@ -169,14 +164,14 @@ class NdData(object):
         @param factor Storage location for the factor.
         @return 0 if successful
         """
-        if index < 0 or index > nddata.nsegments:
-            print(f"Invalid index. Must be between {0} and {nddata.nsegments}, got {index}.")
+        if index < 0 or index > self.nsegments:
+            print(f"Invalid index. Must be between {0} and {self.nsegments}, got {index}.")
             return -1
 
-        if level < 0 or level >= nddata.depth:
-            print(f"Invalid level. Must be between {0} and {nddata.depth - 1}, got {level}.")
+        if level < 0 or level >= self.depth:
+            print(f"Invalid level. Must be between {0} and {self.depth - 1}, got {level}.")
             return -1
 
-        linear_index = index + (nddata.nsegments + 1) * level
-        factor = nddata.factors + linear_index
-        return 0
+        linear_index = index + (self.nsegments + 1) * level
+        factor = self.factors[linear_index]
+        return factor
