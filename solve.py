@@ -1,5 +1,5 @@
 import copy
-def ndqlr_Solve(solver):
+def ndlqr_Solve(solver):
     """
     Returns 0 if the system was solved succeffuly.
     """
@@ -9,7 +9,7 @@ def ndqlr_Solve(solver):
     nhorizon = solver.nhorizon
 
     #Solving for independent diagonal block on the lowest level
-    for k in range (nhorizon-1): #1 to N or 0 to N-1?
+    for k in range (nhorizon-1): 
         ndlqr_SolveLeaf(solver,k) #line 62 in original code
 
     #Solving factorization
@@ -31,10 +31,10 @@ def ndqlr_Solve(solver):
             index = solver.tree.ndlqr_GetIndexFromLeaf(leaf,level)
             #get the Sbar Matrix calculated above
             #NdFactor* F
-            F=ndlqr_GetNdFactor(solver.fact, index+1,level) #check where is this function coming from
-            Sbar = F.lambda
-            cholinfo = ndlqr_GetSFactorization (sovler.cholfacts,leaf,level)
-            MatrixCholeskyFactorizeWithInfo(&Sbar,cholinfo)
+            F = solver.fact.ndlqr_GetNdFactor(index+1,level) #check where is this function coming from
+            Sbar = F.lambdas
+            cholinfo = ndlqr_GetSFactorization(solver.cholfacts,leaf,level)
+            cholinfo = scipy.linalg.cholesky(Sbar) #check extra parameters
             """
             Probably can substitute this whole piece with just Cholesky linalg?
             """
@@ -45,10 +45,10 @@ def ndqlr_Solve(solver):
         for i in range (num_solves):
             leaf = i//upper_levels
             upper_level = level+1+(i%upper_levels)
-            index = ndlqr_GetIndexFromLeaf(solver.tree,leaf,level)
+            index = solver.tree.ndlqr_GetIndexFromLeaf(leaf,level)
             """Rewrite it"""
-            ndlqr_GetSFactorization(solver->cholfacts, leaf, level, &cholinfo);
-            ndlqr_SolveCholeskyFactor(solver->fact, cholinfo, index, level, upper_level);
+            cholinfo = ndlqr_GetSFactorization(solver.cholfacts, leaf, level)
+            ndlqr_SolveCholeskyFactor(solver.fact, cholinfo, index, level, upper_level)
             
 
         #Shur compliments - check for numpy library!
@@ -58,11 +58,11 @@ def ndqlr_Solve(solver):
             upper_level = level+1+(i%upper_levels)
             index = solver.tree.ndlqr_GetIndexAtLevel(k,level)
             calc_lambda = ndlqr_ShouldCalcLambda(solver.tree, index, k)
-            ndlqr_UdpateShurFactor(solver.fact, solver.fact, index, k, level, upper_level,calc_lambda) 
+            ndlqr_UpdateShurFactor(solver.fact, solver.fact, index, k, level, upper_level,calc_lambda) 
         
     #Solver for solution vector using the cached factorization
     for level in range (depth): #line 137
-        numleaves = PowerOfTwo(depth-level -1)
+        numleaves = 2 ** (depth - level - 1) # PowerOfTwo(depth-level -1)
 
         #Calculate inner products with right-hand-side, with the factors computed above
         for leaf in range (numleaves):
@@ -77,10 +77,10 @@ def ndqlr_Solve(solver):
 
             #Get the Sbar Matrix calculated above
             """WHAT IS Sbar Matrix??"""
-            F = ndlqr_GetNdFactor(solver.fact,index+1,level)
-            z = ndlqr_GetNdFactor(solver.soln,index+1,0)
-            Sbar = F.lambda
-            zy = z.lambda
+            F = solver.fact.ndlqr_GetNdFactor(index+1,level)
+            z = solver.soln.ndlqr_GetNdFactor(index+1,0)
+            Sbar = F.lambdas
+            zy = z.lambdas
 
             #Solve (S - C1'F1 - C2'F2)^{-1} (d - F1'b1 - F2'b2) -> Sbar \ z = zbar
             cholinfo = ndlqr_GetSFactorization(solver.cholfacts,leaf,level)
@@ -91,7 +91,7 @@ def ndqlr_Solve(solver):
         for k in range (nhorizon):
             index = solver.tree.ndlqr_GetIndexAtLevel(k,level)
             calc_lambda=ndlqr_ShouldCalcLambda(solver.tree,index,k)
-            ndlqr_UdpateShurFactor(solver.fact, solver.soln, index,k, level, 0 , calc_lambda)
+            ndlqr_UpdateShurFactor(solver.fact, solver.soln, index,k, level, 0 , calc_lambda)
     return 0
 
 def ndlqr_GetSolution(solver):
@@ -105,4 +105,3 @@ def ndlqr_CopySolution (solver, soln):
     if(solver==None):
         return -1
     return copy.deepcopy(solver.soln.data)
-    
