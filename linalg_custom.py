@@ -1,4 +1,3 @@
-#Still need to check - clap_CholeskySolve
 
 """
 clap_MatrixAddition 
@@ -17,7 +16,9 @@ clap_CholeskyFactorize - just call lianlg.cholesky(a)
 
 def clap_CholeskySolve(L, b):
     # Implements: clap_LowerTriBackSub(L, b, 0)
-    scipy.linalg.solve_triangular(L, b, trans=0, overwrite_b=True)
+    scipy.linalg.solve_triangular(L, b, trans=0, lower = True, overwrite_b=True)
     # Implements: clap_LowerTriBackSub(L, b, 1)
-    scipy.linalg.solve_triangular(L, b, trans=1, overwrite_b=True)
+    scipy.linalg.solve_triangular(L, b, trans=1,lower = True, overwrite_b=True)
     return 0
+   
+   #for some reason does not override b
