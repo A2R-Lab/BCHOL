@@ -3,7 +3,7 @@ class BinaryNode (object):
     @brief One of the nodes in the binary tree for the rsLQR solver
     """
     """
-    #How do we initialize binaryNode? - Yana
+ 
     def _init_(self):
         self.idx # < knot point index
         self.level # < level in the tree
@@ -14,40 +14,50 @@ class BinaryNode (object):
         self.left_child # < left child
         self.right_child # < right child
     """
-    #Not sure how do we initialize self.idx and self.parent?
-    def _init_(self,start,len): 
-        """
-        actualy builds the tree,need to implement the function (Srishti - "implemented this now, but not sure if it's the correct translation from C")
-        """
-        mid = (len + 1) // 2
-        new_len = mid - 1
-        self.parent = None 
-        self.idx = 0 #DOUBLE CHECK!
-        if len > 1:
-            self = start + new_len #binaryNode, how can we add BinaryNode* and int??
-            left_root = BinaryNode(start, new_len)
-            right_root = BinaryNode(start + mid, new_len)
-            self.left_child = left_root
-            self.right_child = right_root
-            left_root.parent = self
-            right_root.parent = self
-            self.left_inds.start = left_root.left_inds.start
-            self.left_inds.stop = left_root.right_inds.stop
-            self.right_inds.start = right_root.left_inds.start
-            self.right_inds.stop = right_root.right_inds.stop
-            self.level = left_root.level + 1
-            
-        else:
-            k = start.idx
-            self.left_inds.start = k
-            self.left_inds.stop = k
-            self.right_inds.start = k + 1
-            self.right_inds.stop = k + 1
-            self.level = 0
-            self.left_child = None
-            self.right_child = None
-            
-class OrderedBinarytree(object):
+    def __init__(self):
+        self.parent = None
+        self.idx = 0
+        self.left_child = None
+        self.right_child = None
+        self.left_inds_start = -1
+        self.left_inds_stop = -1
+        self.right_inds_start = -1
+        self.right_inds_stop = -1
+        self.level = 0
+        
+
+def buildSubTree(start, len):
+    """
+    actualy builds the tree
+    """
+    mid = (len + 1) // 2
+    new_len = mid - 1
+    current = BinaryNode()
+    if len > 1:
+        current = start[new_len]
+        left_root = buildSubTree(start[0:], new_len)
+        right_root = buildSubTree(start[mid:], new_len)
+        current.left_child = left_root
+        current.right_child = right_root
+        left_root.parent = current
+        right_root.parent = current
+        current.left_inds_start = left_root.left_inds_start
+        current.left_inds_stop = left_root.right_inds_stop
+        current.right_inds_start = right_root.left_inds_start
+        current.right_inds_stop = right_root.right_inds_stop
+        current.level = left_root.level + 1
+    else:
+        k = start[0].idx
+        current.left_inds_start = k
+        current.left_inds_stop = k
+        current.right_inds_start = k + 1
+        current.right_inds_stop = k + 1
+        current.level = 0
+        current.left_child = None
+        current.right_child = None
+    return current
+
+class OrderedBinaryTree(object):
     """
     @brief The binary tree for the rsLQR solver
     
@@ -69,7 +79,7 @@ class OrderedBinarytree(object):
     """
     #originally ndlqr_BuildTree
 
-    def _init_(self, nhorizon): # (Srishti - "Is N (of C code) = nhorizon (of Python code)? - I think yes, look at .c file")
+    def __init__(self, nhorizon):
         """
         @brief Construct a new binary tree for a horizon of length @p N
         
@@ -78,17 +88,18 @@ class OrderedBinarytree(object):
         @return A new binary tree
         """
         assert(isPowerOfTwo(nhorizon)) #calling outside function here
-        self.node_list = []
+        self.node_list = [] #BinaryNode list
         for i in range (nhorizon):
-            self.node_list[i].idx = i # (Srishti - "don't we have to make node_list of length `nhorizon` first?")
-                                    # (Yana - "In python we don't have to specify the length of the list")
+            bn = BinaryNode()
+            bn.idx = i
+            self.node_list.append(bn)
         self.num_elements = nhorizon
         self.depth = math.log2(nhorizon)
         
         # Build the tree
-        self.root = BinaryNode(node_list, nhorizon - 1)
+        self.root = buildSubTree(self.node_list, nhorizon - 1)
 
-      
+    # QUESTION : WHERE DO WE ACTUALLY ACCESSING THE TREE IN THIS FUNCTION?
     def ndlqr_GetIndexFromLeaf(self, leaf, level):
         """
         @brief Get the knot point index given the leaf index at a given level
@@ -111,20 +122,21 @@ class OrderedBinarytree(object):
         """
         return self.node_list[index].level   
 
-    #"Is there const functions in python?"
-    def ndlqr_GetNodeAtLevel (node,index,level):
-        if(node.level == level):
-            return node
-        elif(node.level>level):
-            if(index <= node.idx):
-                return GetNodeAtLevel (node.left_child, index, level)
-            else:
-                return GetNodeAtLevel(node.right_child, index, level)
-        else:
-            return GetNodeAtLevel(node.parent, index, level)
+def GetNodeAtLevel (node,index,level):
+  if(node.level == level):
+    return node
+  elif(node.level>level):
+    if(index <= node.idx):
+      return GetNodeAtLevel (node.left_child, index, level)
+    else:
+      return GetNodeAtLevel(node.right_child, index, level)
+  else:
+      return GetNodeAtLevel(node.parent, index, level)
 
-    def ndlqr_GetIndexAtLevel(self, leaf, level):
-        """
+
+#I think it should also be outside of class
+def ndlqr_GetIndexAtLevel(tree, index, level):
+  """
         @brief Get the index in 'level' that corresponds to `index`.
 
         If the level is higher than the level of the given index, it's simply the parent
@@ -138,17 +150,17 @@ class OrderedBinarytree(object):
         @return int  The index closest to the provided one, in the given level. -1 if
         unsucessful.
         """
-        if tree == None: # (Srishti - "is this syntax correct for Python" Yana -"Yep!")
-            return -1
-        if index < 0 or index >= tree.num_elements:
-            print(f"ERROR: Invalid index ({index}). Should be between 0 and {tree.num_elements - 1}.")
+  if (tree == None):
+    return -1
+  if index < 0 or index >= tree.num_elements:
+    print(f"ERROR: Invalid index ({index}). Should be between 0 and {tree.num_elements - 1}.")
         
-        if level < 0 or level >= tree.depth:
-            print(f"ERROR: Invalid level ({level}). Should be between 0 and {tree.depth - 1}.")
+  if level < 0 or level >= tree.depth:
+    print(f"ERROR: Invalid level ({level}). Should be between 0 and {tree.depth - 1}.")
 
-        node = tree.node_list + index
-        if index == tree.num_elements - 1:
-            node = tree.node_list + index - 1
+  node = tree.node_list + index
+  if index == tree.num_elements - 1:
+    node = tree.node_list + index - 1
 
-        base_node = GetNodeAtLevel(node, index, level) # (Srishti - "check how to define const variable here (syntax)")
-        return base_node.idx
+  base_node = GetNodeAtLevel(node, index, level)
+  return base_node.idx
