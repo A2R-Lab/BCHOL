@@ -13,7 +13,7 @@ class NdLqrProfile(object):
     - ndlqr_PrintProfile()
     - ndlqr_CompareProfile()
     """
-    def _init_(self):
+    def __init__(self):
         """
         @brief Create a profile initialized with zeros
         """
@@ -62,19 +62,19 @@ class NdLqrProfile(object):
         dest.t_shur_ms = src.t_shur_ms
         return
 
-    def ndlqr_PrintProfile(self, profile):
+    def ndlqr_PrintProfile(self):
         """
         @brief Print a summary fo the profile
 
         @param profile
         """
-        print(f"Solved with {profile.num_threads} threads")
-        print(f"Solve Total:    {profile.t_total_ms} ms")
-        print(f"Solve Leaves:   {profile.t_leaves_ms} ms")
-        print(f"Solve Products: {profile.t_products_ms} ms")
-        print(f"Solve Cholesky: {profile.t_cholesky_ms} ms")
-        print(f"Solve Solve:    {profile.t_cholsolve_ms} ms")
-        print(f"Solve Shur:     {profile.t_shur_ms} ms")
+        print(f"Solved with {self.num_threads} threads")
+        print(f"Solve Total:    {self.t_total_ms} ms")
+        print(f"Solve Leaves:   {self.t_leaves_ms} ms")
+        print(f"Solve Products: {self.t_products_ms} ms")
+        print(f"Solve Cholesky: {self.t_cholesky_ms} ms")
+        print(f"Solve Solve:    {self.t_cholsolve_ms} ms")
+        print(f"Solve Shur:     {self.t_shur_ms} ms")
         return
 
     def ndlqr_CompareProfile(self, base, prof): # Srishti - "needs to be changed -> self is base or prof, depending on usage, currently no usage seen in Python code"
@@ -102,6 +102,7 @@ class NdLqrSolver(object):
     """
     @brief Main solver for rsLQR
 
+    Holds all info for solving the LQR problem
     Core struct for solving problems with rsLQR. Allocates all the required memory
     up front to avoid any dynamic memory allocations at runtime. Right now, the
     horizon length is required to be a power of 2 (e.g. 32,64,128,256,etc.).
@@ -137,7 +138,7 @@ class NdLqrSolver(object):
     - ndlqr_PrintSolveProfile()
     - ndlqr_GetProfile()
     """
-    def _init_(self, nstates, ninputs, nhorizon): # Called `ndlqr_NewNdLqrSolver` in C program
+    def __init__(self, nstates, ninputs, nhorizon): # Called `ndlqr_NewNdLqrSolver` in C program
         """
         @brief Create a new solver, allocating all the required memory.
 
@@ -163,22 +164,21 @@ class NdLqrSolver(object):
         self.profile
         self.num_threads # < Number of threads used by the solver.
         """
-        tree = ndlqr_BuildTree(nhorizon)
+        tree = OrderedBinaryTree(nhorizon)
         nvars = (2 * nstates + ninputs) * nhorizon - ninputs
 
         diag_size = (nstates * nstates + ninputs * ninputs) * nhorizon
-        diag_data = 
-        diagonals = 
+        diag_data = []
+        for k in range(diag_size):
+            diag_data.append(0)
+        diagonals = []
+        blocksize = nstates * nstates + ninputs * ninputs
         for k in range(nhorizon):
-            blocksize = nstates * nstates + ninputs * ninputs
-            diagonals[2 * k].rows = nstates
-            diagonals[2 * k].cols = nstates
-            diagonals[2 * k].data = diag_data + k * blocksize
-            diagonals[2 * k + 1].rows = ninputs
-            diagonals[2 * k + 1].cols = ninputs
-            diagonals[2 * k + 1].data = diag_data + k * blocksize + nstates * nstates
+            diagonals.append(np.zeros((nstates,nstates)))
+            diagonals.append(np.zeros((ninputs,ninputs))) #VERIFY LATER CORRECTNESS!
+
         
-        cholfacts = ndlqr_NewCholeskyFactors(tree.depth, nhorizon)
+        cholfacts = CholeskyFactors(tree.depth, nhorizon)
 
         self.nstates = nstates
         self.ninputs = ninputs
@@ -187,14 +187,16 @@ class NdLqrSolver(object):
         self.nvars = nvars
         self.tree = tree
         self.diagonals = diagonals
-        self.data = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
-        self.fact = ndlqr_NewNdData(nstates, ninputs, nhorizon, nstates)
-        self.soln = ndlqr_NewNdData(nstates, ninputs, nhorizon, 1)
+        self.data = NdData(nstates, ninputs, nhorizon, nstates)
+        self.fact = NdData(nstates, ninputs, nhorizon, nstates)
+        self.soln = NdData(nstates, ninputs, nhorizon, 1)
         self.cholfacts = cholfacts
         self.solve_time_ms = 0.0
         self.linalg_time_ms = 0.0
         self.profile = NdLqrProfile()
-        self.num_threads = omp_get_num_procs() // 2
+        self.num_threads = 0 
+        # set to 0 for the time-being since function is not implemented
+        # self.num_threads = omp_get_num_procs() // 2
 
     def ndlqr_ResetSolver(self):
         """
@@ -204,9 +206,9 @@ class NdLqrSolver(object):
 
         @param solver
         """
-        ndlqr_ResetNdData(self.data) # Srishti - inplement ndlqr_ResetNdData (part of nddata)
-        ndlqr_ResetNdData(self.fact)
-        ndlqr_ResetNdData(self.soln)
+        self.data.ndlqr_ResetNdData() # Srishti - inplement ndlqr_ResetNdData (part of nddata)
+        self.fact.ndlqr_ResetNdData()
+        self.soln.ndlqr_ResetNdData()
         self.profile.ndlqr_ResetProfile()
         for i in range(2 * self.nhorizon):
             MatrixSetConst(self.diagonals[i], 0.0)
@@ -239,18 +241,14 @@ class NdLqrSolver(object):
             return -1
 
         # Create a minux identity matrix for copying into the original matrix
-        minus_identity = NewMatrix(nstates, nstates)
-        MatrixSetConst(&minus_identity, 0)
-        for i in range(nstates)
-            MatrixSetElement(minus_identity, i, i, -1)
+        minus_identity = -np.eye(nstates)
 
         # Loop over the knot points, copying the LQR data into the matrix data
         # and populating the right-hand-side vector
-        Cfactor = 
-        zfactor = 
-        ndlqr_GetNdFactor(self.soln, 0, 0, zfactor)
-        zfactor.lambda.data = lqrprob.x0
-        k = 
+        Cfactor = []
+        zfactor = []
+        zfactor = self.soln.ndlqr_GetNdFactor(0, 0)
+        zfactor.lambdas = lqrprob.x0
         for k in range(self.nhorizon - 1):
             if nstates != lqrprob.lqrdata[k].nstates:
                 return -1
@@ -258,39 +256,44 @@ class NdLqrSolver(object):
                 return -1
 
             # Copy data into C factors and rhs vector from LQR data
-            level = ndlqr_GetIndexLevel(self.tree, k)
-            ndlqr_GetNdFactor(self.data, k, level, Cfactor)
-            ndlqr_GetNdFactor(self.soln, k, 0, zfactor)
-            A = [nstates, nstates, lqrprob.lqrdata[k].A]
-            B = [nstates, ninputs, lqrprob.lqrdata[k].B]
-            MatrixCopyTranspose(Cfactor.state, A)
-            MatrixCopyTranspose(Cfactor.input, B)
-            zfactor.state.data = lqrprob.lqrdata[k].q
-            zfactor.input.data = lqrprob.lqrdata[k].r
+            level = self.tree.ndlqr_GetIndexLevel(k)
+            Cfactor = self.data.ndlqr_GetNdFactor(k, level)
+            zfactor = self.soln.ndlqr_GetNdFactor(k, 0)
+            A = lqrprob.lqrdata[k].A
+            B = lqrprob.lqrdata[k].B
+            Cfactor.state = A.T
+            Cfactor.input = B.T
+            zfactor.state = lqrprob.lqrdata[k].q
+            zfactor.input = lqrprob.lqrdata[k].r
 
             # Copy Q and R into diagonals
-            Q = self.diagonals[2 * k]
-            R = self.diagonals[2 * k + 1]
-            MatrixSetConst(Q, 0)
-            MatrixSetConst(R, 0)
+            #Q = self.diagonals[2 * k]
+            #R = self.diagonals[2 * k + 1]
+            Q = np.zeros((nstates, nstates))
+            R = np.zeros((ninputs, ninputs))
             for i in range(nstates):
-                MatrixSetElement(Q, i, i, lqrprob.lqrdata[k].Q[i])
+                Q[i][i] = lqrprob.lqrdata[k].Q[0][i]
             for i in range(ninputs):
-                MatrixSetElement(&R, i, i, lqrprob.lqrdata[k].R[i])
+                R[i][i] = lqrprob.lqrdata[k].R[0][i]
 
             # Next time step
-            ndlqr_GetNdFactor(self.data, k + 1, level, Cfactor)
-            ndlqr_GetNdFactor(self.soln, k + 1, 0, zfactor)
-            Cfactor.state.data = minus_identity.data
-            MatrixSetConst(Cfactor.input, 0.0)
-            zfactor.lambda.data = lqrprob.lqrdata[k].d
+            Cfactor = self.data.ndlqr_GetNdFactor(k + 1, level)
+            zfactor = self.soln.ndlqr_GetNdFactor(k + 1, 0)
+            Cfactor.state = minus_identity
+            r = len(Cfactor.input)
+            c = len(Cfactor.input[0])
+            Cfactor.input = np.zeros((r, c))
+            zfactor.lambdas = lqrprob.lqrdata[k].d
 
         # Terminal step
-        zfactor.state.data = lqrprob.lqrdata[k].q
+        k = self.nhorizon - 1 # CHECK IF NEEDED
+        zfactor.state = lqrprob.lqrdata[k].q
         Q = self.diagonals[2 * k]
-        MatrixSetConst(Q, 0)
+        r = len(Q)
+        c = len(Q[0])
+        Q = np.zeros((r, c))
         for i in range(nstates):
-            MatrixSetElement(Q, i, i, lqrprob.lqrdata[k].Q[i])
+            Q[i][i] = lqrprob.lqrdata[k].Q[0][i]
 
         # Negate the entire rhs vector
         for i in range(self.nvars):
@@ -365,7 +368,7 @@ class NdLqrSolver(object):
         """
         if not self:
             return -1
-        ndlqr_PrintProfile(self.profile)
+        self.profile.ndlqr_PrintProfile()
         return 0
 
     def ndlqr_GetProfile(self): # Srishti - Usage should be modified according to the modified Python code here
