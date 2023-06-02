@@ -13,10 +13,39 @@ napesapce cgrps = cooperative_groups;
  * @param  int n: number of cols/rows in a square matrix s_A (n*n)
  *
  */
- 
+
+//FIRST VERSION
+template <typename T> 
+__device__ 
+void cholDecomp_InPlace(T *s_A, int n) {
+    for (unsigned col = 0; col < n; col++) {
+        if (threadIdx.x == 0){
+            T sum = 0;
+            T val = s_A[n*col+col]; //entry Ljj
+            for(unsigned col_l = 0 ; col_l < col; col_l++) {
+                sum += pow(s_A[col*n+col_l],2);
+            }
+            s_A[col*n+col] = sqrt(val - sum);
+
+        }
+        __syncthreads(); //here we computed the diagonal entry of the column
+        // compute the rest of the column
+        for(unsigned row = threadIdx.x + col +1; row < n; row += blockDim.x){
+            T sum = 0;
+            T val = s_A[row*n+col];
+            for(unsigned k = 0; k < col; k++) {
+                sum += s_A[row*n+k]*s_A[col*n+k];
+            }
+            s_A[row*n+col] = (1.0/s_A[col*n+col])*(s_A[row*n+col]-sum);
+        }
+        __syncthreads();
+    }
+}
+
+//cgrps version
  template <typename T> 
 __device__ 
-void cholDecomp_InPlace_r (std::unit31_t n,
+void chol_InPlace_r (std::unit31_t n,
                         T *s_A,
                         cgrps::thread_group g = cgrps::this_thread_block())
 {
@@ -57,6 +86,7 @@ void cholDecomp_InPlace_r (std::unit31_t n,
  *
  */
 
+//FINAL
 template <typename T> 
 __device__ 
 void cholDecomp_InPlace_c (std::unit31_t n,
