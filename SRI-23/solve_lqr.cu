@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
-#include "block_LQR.cuh"
+#include "solve.cuh"
 
 //#include "blockassert.cuh" //need to write!
 
