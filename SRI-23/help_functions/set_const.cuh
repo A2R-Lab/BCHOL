@@ -4,7 +4,7 @@ namespace cgrps = cooperative_groups;
 
 template <typename T>
 __device__
-void scal(std::uint32_t n, 
+void set_const(std::uint32_t n, 
           T const, 
           T *x, 
           cgrps::thread_group g)
