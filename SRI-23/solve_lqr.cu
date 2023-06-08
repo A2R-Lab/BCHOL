@@ -11,27 +11,84 @@ int main() {
 //Info about LQR problem
 
   const unit32_t nhorizon = 8;
-  const unit32_t state_size = 6;
-  const unit32_t input_size = 3; 
+  const unit32_t nstates = 6;
+  const unit32_t ninputs = 3; 
+  const unit32_t depth = 2; 
   
   float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; 
-  float Q_R[72] = {  1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q0
-                     0.01, 0.01, 0.01, //R0
-                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q1
-                     0.01, 0.01, 0.01, //R1
-                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q2
-                     0.01, 0.01, 0.01, //R2
-                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q3
-                     0.01, 0.01, 0.01, //R3
-                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q4
-                     0.01, 0.01, 0.01, //R4
-                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q5
-                     0.01, 0.01, 0.01, //R5
-                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, //Q6
-                     0.01, 0.01, 0.01, //R6
-                     10.0, 10.0, 10.0, 10.0, 10.0, 10.0, //Q7
-                     0.0, 0.0, 0.0 //R7 -doesnt exist
-                     } //Q_R diagonal vectors 
+  float Q_R[360] = {  1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q0
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R0
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q1
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R1
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q2
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R2
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q3
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R3
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q4
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R4
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q5
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R5
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q6
+                     0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                     0.01, 0.00, 0.00, //R6
+                     0.00, 0.01, 0.00,
+                     0.00, 0.00, 0.01,
+                     10.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q7
+                     0.0, 10.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 10.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 
+                     0.0, 0.0, 0.0, 0.0, 10.0, 0.0,
+                     0.0, 0.0, 1.0, 0.0, 0.0, 10.0,
+                     0.00, 0.00, 0.00, //R7
+                     0.00, 0.00, 0.00,
+                     0.00, 0.00, 0.00
+                     } //Q_R diagonal matrices - doesn't matter row/column order
 
   float q_r[72] = { -2.0, -1.2, -0.4, 0.4, 1.2, 2.0, //q0
                     -1.0,  0.0,  1.0, //r0
@@ -49,7 +106,7 @@ int main() {
                     -7.0,  0.0, 7.0, //r6
                     -160.0, -96.0, -32.0, 32.0, 96.0, 160.0 //q7
                     -0.0, 0.0, 0.0 //r7 -doesn't exist
-                    }
+                    } //vectors q_r
                                      
                     
                     
@@ -127,15 +184,30 @@ int main() {
                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, //end of B7
                 }
-    float d[48] = { 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, //d0
+    float d[48] = { 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, //x0
+                 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, //d0
                  3.0, 3.0, 3.0 3.0, 3.0, 3.0, //d1
                  4.5, 4.5, 4.5,4.5, 4.5, 4.5, //d2
                  6.0, 6.0, 6.0,6.0, 6.0, 6.0  //d3
                  7.5, 7.5, 7.5,7.5, 7.5, 7.5  //d4
                  9.0, 9.0, 9.0,9.0, 9.0, 9.0 // d5
                  10.5,10.5,10.5,10.5,10.5, 10.5 //d6
-                 0.0, 0.0, 0.0 0.0, 0.0, 0.0, //d8
                }
+   //Fact_Lambda[nstates*nstates*nhorizon*depth]
+   float Fact_Lambda[36*8*3]; 
+   float Fact_State[36*8*3];
+   for(std::unit32_t n = 0; n < 864; n++){
+      Fact_Lambda[n] = 0;
+      Fact_State[n] = 0;
+   }
+
+   //Fact_Input[nstates*ninputs*nhorizon*depth]  
+   float Fact_Input[18*8*3];
+   for(std::unit32_t n = 0; n < 864; n++) {
+      Fact_Input[n] = 0;
+   }
+
+
    float soln[116] = { 118.50447730549635,
       172.84569760649603,
       273.5288554044134,
@@ -255,23 +327,40 @@ int main() {
       -23.433992381590347
       } //soln that we are supposed to get
       
-   //when using for soln_vector need to negate q_r and transpose A,B!
+   //when using for soln_vector need to negate q_r and d_d
+   
    
    //Allocate memory on the GPU for x0,Q_R,q_r, A_B, d, 
    float* d_x0;
+   cudaMalloc((void**)&d_x0, 6*sizeof(float));
+
    float* d_Q_R;
+   cudaMalloc((void**)&d_Q_R, 360*sizeof(float));
+
    float* d_q_r;
+   cudaMalloc((void**)&d_q_r, 72*sizeof(float));
+
    float* d_A_B;
+   cudaMalloc((void**)&d_A_B, 432*sizeof(float));
+
    float* d_d;
+   cudaMalloc((void**)&d_d, 48*sizeof(float));
    
-   
-   cudaMalloc();
    
    //Copy the matrices from the host to the GPU memory
-   cudaMemcpy();
-   
+   cudaMemcpy(d_x0, x0, 6 * sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_Q_R, Q_R, 360 * sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_q_r, q_r, 72*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_A_B, A_B, 432*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_d, d, 48*sizeof(float), cudaMemcpyHostToDevice);
+
+
    //Launch CUDA kernel with block and grid dimensions
-   Kernel<float><<<gridSize, blockSize>>>
+   std::uint32_t blockSize = 256;
+   std::uint32_t gridSize = 1;
+   solve_Kernel<float><<<gridSize, blockSize>>>(nhorizon, ninputs, nstates, d_x0, d_Q_R, d_q_r, d_A_B, d_d);
+   cudaDeviceSynchronize();
+    
    
    //here can either launch one Kernel and call all functions within it and use blocks (cprgs)
    //or can potentially launch a kernel per each big function (solve_leaf etc)
