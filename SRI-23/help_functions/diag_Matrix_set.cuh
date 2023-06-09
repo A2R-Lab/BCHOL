@@ -19,3 +19,13 @@ void diag_Matrix_set(std::unit32_t  n, T *v_Q, T *m_Q,  cgrps::thread_group g) {
     }
     
 }
+
+template <typename T>
+__device__
+void diag_Matrix_set(std::uint32_t  n, std::uint32_t c, T *m_Q,  cgrps::thread_group g) {
+    
+    for(uint32_t ind = g.thread_rank(); ind < n; ind+= g.size()){
+        m_Q[ind*n+ind] = c;        
+    }
+    
+}
