@@ -194,17 +194,17 @@ int main() {
                  10.5,10.5,10.5,10.5,10.5, 10.5 //d6
                }
    //Fact_Lambda[nstates*nstates*nhorizon*depth]
-   float Fact_Lambda[36*8*3]; 
-   float Fact_State[36*8*3];
+   float Fact_lambda[36*8*3]; 
+   float Fact_state[36*8*3];
    for(std::unit32_t n = 0; n < 864; n++){
-      Fact_Lambda[n] = 0;
-      Fact_State[n] = 0;
+      Fact_lambda[n] = 0;
+      Fact_state[n] = 0;
    }
 
    //Fact_Input[nstates*ninputs*nhorizon*depth]  
-   float Fact_Input[18*8*3];
+   float Fact_input[18*8*3];
    for(std::unit32_t n = 0; n < 864; n++) {
-      Fact_Input[n] = 0;
+      Fact_input[n] = 0;
    }
 
 
