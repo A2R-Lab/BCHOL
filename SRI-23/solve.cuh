@@ -181,8 +181,7 @@ void solve(uint32_t nhorizon,
            solveleaf(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(states_sq+input_sq),
                      s_q_r+ind*(ninputs+nstates), s_A_B+ind*(states_sq+inp_states),
                      s_d+ind*nstates, s_F_lambda, s_F_state, s_Finput);
-                     //s_F_lambda+ind*(states_sq), s_F_state+ind*(states_sq) for F matrices calculate level too!
-    }
+                     //s_F_lambda+ind*(states_sq), s_F_state+ind*(states_sq) for F matrices use getIndexTree?
   
   
   
