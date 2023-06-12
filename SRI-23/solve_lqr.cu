@@ -2,7 +2,8 @@
 #include <iostream>
 #include <cmath>
 #include "solve.cuh"
-
+#include <cuda_runtime.h>
+#include <cooperative_groups.h>
 //#include "blockassert.cuh" //need to write!
 
 
@@ -15,7 +16,7 @@ int main() {
   const unit32_t ninputs = 3; 
   const unit32_t depth = 2; 
   
-  float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; 
+  //float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; //instead put it as d0
   float Q_R[360] = {  1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q0
                      0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
                      0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
@@ -331,8 +332,9 @@ int main() {
    
    
    //Allocate memory on the GPU for x0,Q_R,q_r, A_B, d, 
+   /*
    float* d_x0;
-   cudaMalloc((void**)&d_x0, 6*sizeof(float));
+   cudaMalloc((void**)&d_x0, 6*sizeof(float));*/
 
    float* d_Q_R;
    cudaMalloc((void**)&d_Q_R, 360*sizeof(float));
@@ -345,14 +347,27 @@ int main() {
 
    float* d_d;
    cudaMalloc((void**)&d_d, 48*sizeof(float));
+
+  //do we need to allocate memory for F?
+   float* d_F_lambda;
+   cudaMalloc((void**)&d_F_lambda, 36*8*3*sizeof(float));
+
+   float* d_F_state;
+   cudaMalloc((void**)&d_F_state, 36*8*3*sizeof(float));
+
+   float* d_F_input;
+   cudaMalloc((void**)&d_F_input, 18*8*3*sizeof(float));
    
    
    //Copy the matrices from the host to the GPU memory
-   cudaMemcpy(d_x0, x0, 6 * sizeof(float), cudaMemcpyHostToDevice);
+   //cudaMemcpy(d_x0, x0, 6 * sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_Q_R, Q_R, 360 * sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_q_r, q_r, 72*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_A_B, A_B, 432*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_d, d, 48*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_F_lambda, F_lambda, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_F_state, F_state, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_F_input, F_input, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
 
 
    //Launch CUDA kernel with block and grid dimensions
