@@ -31,7 +31,7 @@ namespace cgrps = cooperative_groups;
 
 template <typename T> 
 __device__
-void solveLeaf(unit32_t index,
+void solveLeaf(uint32_t index,
                uint32_t nstates,
                uint32_t ninputs,
                uint32_t nhorizon,
@@ -167,21 +167,43 @@ void solve(uint32_t nhorizon,
     //check if you need to transpose A_B
            
     //negate q_r,d vectors 
-    for (std::uint32_t ind = ; ind < (ninput+nstates)*nhorizon; ind+=block_dim){
+    for (uint32_t ind = ; ind < (ninput+nstates)*nhorizon; ind+=block_dim){
                s_q_r[ind] *= -1;
     }
-    for (std::uint32_t ind = ; ind < (nstates)*nhorizon; ind+=block_dim){
+    for (uint32_t ind = ; ind < (nstates)*nhorizon; ind+=block_dim){
                s_d[ind] *= -1;
     }
            
     //prob initialize -I and 0 matrices?
 
     //should solveLeaf in parallel
-    for (std::uint32_t ind = ; ind < nhorizon; ind+=block_dim) {
+    for (uint32_t ind = ; ind < nhorizon; ind+=grid_dim) {
            solveleaf(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(states_sq+input_sq),
                      s_q_r+ind*(ninputs+nstates), s_A_B+ind*(states_sq+inp_states),
                      s_d+ind*nstates, s_F_lambda, s_F_state, s_Finput);
                      //s_F_lambda+ind*(states_sq), s_F_state+ind*(states_sq) for F matrices use getIndexTree?
+    }
+    __syncthreads();
+  
+  //use one thread to print and check the solveleaf
+  
+  
+  //Solve factorization
+  for(uint32_t level = 0; level < depth; level += )
+   //IMPLEMENT uint32_t numleaves = PowerOfTwo(depth-level-1);
+    
+   //Calc Inner Profucts
+    uint32_t cur_depth = depth - level;
+    uint32_t num_products = numleaves * cur_depth;
+  
+    //in parallel
+    for(uint32_t ind= 0; i < numleaves; ind += ) {
+      for (uint32_t p = level; p < depth; p += ) {
+        uint32_t = 
+      }
+    }
+      
+      
   
   
   
