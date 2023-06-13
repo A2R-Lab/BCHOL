@@ -156,7 +156,11 @@ void factorInnerProduct(T* A_B, T* fact_state, T* fact_input, T* fact_lambda, in
 
 template <typename T> 
 __device__
-void solveCholFactor() {
+void SolveCholeskyFactor(T* fact_state, T* fact_input, T* fact_lambda, int index, int level, int upper_level, int nstates, int ninput, int nhorizon) {
+    T *Sbar = fact_lambda + (index + 1) + nhorizon * level;
+    T *f = fact_lambda + (index + 1) + nhorizon * upper_level;
+
+    cholSolve_InPlace(T *Sbar, T *f, 0, nstates, ninput);
 }
 
 template <typename T> 
