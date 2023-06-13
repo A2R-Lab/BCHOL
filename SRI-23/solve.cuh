@@ -209,7 +209,7 @@ void solve(uint32_t nhorizon,
     grid.sync()
     
     //Solve factorization
-    for(uint32_t level = 0; level < depth; level += )
+    for(uint32_t level = 0; level < depth; level += ) {
       uint32_t numleaves = pow(2.0, (depth-level-1) );
 
       //Calc Inner Profucts
@@ -220,9 +220,23 @@ void solve(uint32_t nhorizon,
       for(uint32_t ind= block_id; i < numproducts; ind +=grid_dim) {
        uint32_t leaf = ind/ cur_depth;
        uint32_t upper_level = level+ (i/cur_depth);
-       uint32_t index = 
+       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
+       factorInnerProduct();
       }
-
+      //in original code syncs here before proceeding
+      
+      //Cholesky factorization block/thread_id?
+      for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_di,) {
+        uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
+        float* S = F_lambda[lin_ind+1];
+        //getSfactorizatoin
+        
+        
+        
+        // * @brief Use the precomputed Cholesky factorization to solve for y at each parent level
+        //solveCholFactor()
+      }
+    }
 
   
   
