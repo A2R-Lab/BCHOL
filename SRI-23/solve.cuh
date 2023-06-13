@@ -194,7 +194,7 @@ void updateShur(T* fact_state, T* fact_input, T* fact_lambda, T* q_r, T* d, int 
         glass::gemm(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda);
     }
     glass::gemm(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state);
-    glass:gemm(ninput, nstates, 1, -1.0, F_input, f, 1.0, g_input);
+    glass::gemm(ninput, nstates, 1, -1.0, F_input, f, 1.0, g_input);
 }
 
 
