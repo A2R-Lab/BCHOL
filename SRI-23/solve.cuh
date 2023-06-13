@@ -129,9 +129,9 @@ void factorInnerProduct(T* A_B, T* fact_state, T* fact_input, T* fact_lambda, in
     double* F2_input;
     double* F2_lambda;
 
-    int linear_index = index + nhorizon * data_level;
-    C1_state = A_B+(linear_index * dyn_step);
-    C1_input = A_B+(linear_index * dyn_step + nstates * nstates);
+    //no need for tree conversion int linear_index = index + nhorizon * data_level;
+    C1_state = A_B+(index * dyn_step); 
+    C1_input = A_B+(index * dyn_step + nstates * nstates);
 
     linear_index = index + nhorizon * fact_level; //Not sure
     F1_state = fact_state+linear_index;
@@ -139,8 +139,8 @@ void factorInnerProduct(T* A_B, T* fact_state, T* fact_input, T* fact_lambda, in
     F1_lambda = fact_lambda+linear_index;
 
     linear_index = (index + 1) + nhorizon * data_level;
-    C2_state = A_B+(linear_index * dyn_step);
-    C2_input = A_B+(linear_index * dyn_step + nstates * nstates);
+    C2_state = A_B+(lindex * dyn_step);
+    C2_input = A_B+(iindex * dyn_step + nstates * nstates);
 
     linear_index = (index + 1) + nhorizon * fact_level;
     F2_state = fact_state+linear_index;
