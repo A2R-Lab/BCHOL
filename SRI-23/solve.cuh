@@ -137,7 +137,10 @@ void solve(uint32_t nhorizon,
            T *d_Q_R,
            T *d_q_r,
            T *d_A_B,
-           T *d_d)
+           T *d_d,
+           T *d_F_lambda,
+           T *d_F_state,
+           T *d_F_input)
 //what is exit_tol?
 {
     //Ask Emre about cgrps again!
@@ -146,6 +149,9 @@ void solve(uint32_t nhorizon,
     const uint32_t block_id = blockIdx.x;
     const uint32_t block_dim = blockDim.x;
     const uint32_t thread_id = threadIdx.x;
+    const uint32_t grid_dim=gridDim.x;
+  
+    //const for KKT matrix
     const unit32_t states_sq = nstates*nstates;
     const unit32_t inputs_sq = ninputs*ninputs;
     const unit32_t inputs_sq = ninputs*ninputs;
@@ -153,7 +159,7 @@ void solve(uint32_t nhorizon,
     const uint32_t depth = log2(nhorizon);
     
            
-    //move everything to shared memory?
+    //move everything to shared memory
     extern __shared__ T s_temp[];
     T *s_Q_R = s_temp;
     T *s_q_r = s_Q_R + (states_sq + input_sq)*nhorizon;
@@ -163,27 +169,40 @@ void solve(uint32_t nhorizon,
     T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
     T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
            
-    //check if you need soln vector or put it in a different Kernel?
+    
     //check if you need to transpose A_B
            
-    //negate q_r,d vectors 
-    for (uint32_t ind = ; ind < (ninput+nstates)*nhorizon; ind+=block_dim){
+    //negate q_r,d vectors (using threads)
+    for (uint32_t ind = thread_id; ind < (ninput+nstates)*nhorizon; ind+=block_dim){
                s_q_r[ind] *= -1;
     }
-    for (uint32_t ind = ; ind < (nstates)*nhorizon; ind+=block_dim){
+    //sync threads
+   block.sync()
+      
+    for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
                s_d[ind] *= -1;
     }
+    
+    //sync threads
+    block.sync()
            
-    //prob initialize -I and 0 matrices?
-
     //should solveLeaf in parallel
-    for (uint32_t ind = ; ind < nhorizon; ind+=grid_dim) {
+    for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
            solveleaf(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(states_sq+input_sq),
                      s_q_r+ind*(ninputs+nstates), s_A_B+ind*(states_sq+inp_states),
                      s_d+ind*nstates, s_F_lambda, s_F_state, s_Finput);
                      //s_F_lambda+ind*(states_sq), s_F_state+ind*(states_sq) for F matrices use getIndexTree?
     }
-    __syncthreads();
+    
+    //sync block
+    grid.sync();
+    if(debug) {
+      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+        printf("s_F_lambda[%d], %.2f\n", ind, s_F_lambda[i]);
+        printf("s_F_state[%d], %.2f\n", ind, s_F_state[i]);
+        printf("s_F_input[%d],%.2f\n", ind, s_F_input[i]);
+      }
+    }
   
   //use one thread to print and check the solveleaf
   
