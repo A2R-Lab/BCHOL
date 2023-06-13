@@ -197,32 +197,33 @@ void solve(uint32_t nhorizon,
     //sync block
     grid.sync();
     if(debug) {
-      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
-        printf("s_F_lambda[%d], %.2f\n", ind, s_F_lambda[i]);
-        printf("s_F_state[%d], %.2f\n", ind, s_F_state[i]);
-        printf("s_F_input[%d],%.2f\n", ind, s_F_input[i]);
+      if(block_id == 0 && thread_id == 0) {
+        for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+          printf("s_F_lambda[%d], %.2f\n", ind, s_F_lambda[i]);
+          printf("s_F_state[%d], %.2f\n", ind, s_F_state[i]);
+          printf("s_F_input[%d],%.2f\n", ind, s_F_input[i]);
+        }
       }
     }
-  
-  //use one thread to print and check the solveleaf
-  
-  
-  //Solve factorization
-  for(uint32_t level = 0; level < depth; level += )
-   //IMPLEMENT uint32_t numleaves = PowerOfTwo(depth-level-1);
+    //grid or block sync?
+    grid.sync()
     
-   //Calc Inner Profucts
-    uint32_t cur_depth = depth - level;
-    uint32_t num_products = numleaves * cur_depth;
-  
-    //in parallel
-    for(uint32_t ind= 0; i < numleaves; ind += ) {
-      for (uint32_t p = level; p < depth; p += ) {
-        uint32_t = 
+    //Solve factorization
+    for(uint32_t level = 0; level < depth; level += )
+      uint32_t numleaves = pow(2.0, (depth-level-1) );
+
+      //Calc Inner Profucts
+      uint32_t cur_depth = depth - level;
+      uint32_t num_products = numleaves * cur_depth;
+
+      //in parallel
+      for(uint32_t ind= block_id; i < numproducts; ind +=grid_dim) {
+       uint32_t leaf = ind/ cur_depth;
+       uint32_t upper_level = level+ (i/cur_depth);
+       uint32_t index = 
       }
-    }
-      
-      
+
+
   
   
   
