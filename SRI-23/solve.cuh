@@ -114,7 +114,44 @@ void solveLeaf(uint32_t index,
 
 template <typename T> 
 __device__
-void factorInnerProduct() {
+void factorInnerProduct(T* A_B, T* fact_state, T* fact_input, T* fact_lambda, int index, int data_level, int fact_level, int nstates, int ninput, int nhorizon) {
+    double* C1_state;
+    double* C1_input;
+
+    double* F1_state;
+    double* F1_input;
+    double* F1_lambda;
+
+    double* C2_state;
+    double* C2_input;
+
+    double* F2_state;
+    double* F2_input;
+    double* F2_lambda;
+
+    int linear_index = index + nhorizon * data_level;
+    C1_state = A_B+(linear_index * dyn_step);
+    C1_input = A_B+(linear_index * dyn_step + nstates * nstates);
+
+    linear_index = index + nhorizon * fact_level; //Not sure
+    F1_state = fact_state+linear_index;
+    F1_input = fact_input+linear_index;
+    F1_lambda = fact_lambda+linear_index;
+
+    linear_index = (index + 1) + nhorizon * data_level;
+    C2_state = A_B+(linear_index * dyn_step);
+    C2_input = A_B+(linear_index * dyn_step + nstates * nstates);
+
+    linear_index = (index + 1) + nhorizon * fact_level;
+    F2_state = fact_state+linear_index;
+    F2_input = fact_input+linear_index;
+    F2_lambda = fact_input+linear_index;
+
+    double *S = F2_lambda;
+    glass::gemm(nstates, nstates, ninput, 1.0, C1_state, F1_state, -1.0, S); //S = C1x'F1x, why -1.0 and not 0.0?
+    glass::gemm(nstates, ninput, nstates, 1.0, C1_input, F1_input, 1.0, S);
+    glass::gemm(nstates, nstates, nstates, 1.0, C2_state, F2_state, 1.0, S);
+    glass::gemm(nstates, ninput, nstates, C2_input, F2_input, 1.0, S);
 }
 
 template <typename T> 
@@ -124,7 +161,40 @@ void solveCholFactor() {
 
 template <typename T> 
 __device__
-void updateShur() {
+void updateShur(T* fact_state, T* fact_input, T* fact_lambda, T* q_r, T* d, int index, int i, int level, int upper_level, bool calc_lambda, int nstates, int ninput, int nhorizon) {
+    double* f_factor_state;
+    double* f_factor_input;
+    double* f_factor_lambda;
+
+    double* g_state;
+    double* g_input;
+    double* g_lambda;
+
+    double* F_state;
+    double* F_input;
+    double* F_lambda;
+
+    int linear_index = (index + 1) + nhorizon * upper_level;
+    f_factor_state = q_r + (linear_index * (nstates + ninputs));
+    f_factor_input = q_r + (linear_index * (nstates + ninputs) + nstates);
+    f_factor_lambda = d + (linear_index * nstates);
+
+    linear_index = i + nhorizon * upper_level;
+    g_state = q_r + (linear_index * (nstates + ninputs));
+    g_input = q_r + (linear_index * (nstates + ninputs) + nstates);
+    g_lambda = d + (linear_index * nstates);
+
+    linear_index = i + nhorizon * level;
+    F_state = fact_state + linear_index;
+    F_input = fact_input + linear_index;
+    F_lambda = fact_lambda + linear_index;
+
+    double* f = f_factor_lambda;
+    if(calc_lambda) {
+        glass::gemm(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda);
+    }
+    glass::gemm(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state);
+    glass:gemm(ninput, nstates, 1, -1.0, F_input, f, 1.0, g_input);
 }
 
 
