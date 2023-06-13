@@ -38,7 +38,8 @@ void FactorInnerProduct(T* A_B, T* fact_state, T* fact_input, T* fact_lambda, in
     F2_input = fact_input+linear_index;
 
     //Use the precomputed Cholesky factorization to solve for y at each parent level 
-    double *S = F2_lambda; //Initialized to a zero matrix
+    double *S;
+    *S = F2_lambda; //Initialized to a zero matrix
 
     //S = C1x * F1x
     glass::gemm(nstates, nstates, ninput, 1.0, C1_state, F1_state, -1.0, S);
