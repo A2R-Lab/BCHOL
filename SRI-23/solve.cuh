@@ -4,6 +4,13 @@
 #includ <cmath>
 #include <cooperative_groups.h>
 #include "./GLASS/GLASS.cuh"
+//should we put into one header file?
+
+#include "lowerBackSub.cuh"
+#include "choleskyDecomp_InPlace.cuh"
+#include "./help_functions/diag_Matrix_set.cuh"
+#include "./help_functions/set_const.cuh"
+
 
 namespace cgrps = cooperative_groups;
 
