@@ -194,21 +194,7 @@ int main() {
                  9.0, 9.0, 9.0,9.0, 9.0, 9.0 // d5
                  10.5,10.5,10.5,10.5,10.5, 10.5 //d6
                }
-   //Fact_Lambda[nstates*nstates*nhorizon*depth]
-   float Fact_lambda[36*8*3]; 
-   float Fact_state[36*8*3];
-   for(std::unit32_t n = 0; n < 864; n++){
-      Fact_lambda[n] = 0;
-      Fact_state[n] = 0;
-   }
-
-   //Fact_Input[nstates*ninputs*nhorizon*depth]  
-   float Fact_input[18*8*3];
-   for(std::unit32_t n = 0; n < 864; n++) {
-      Fact_input[n] = 0;
-   }
-
-
+  
    float soln[116] = { 118.50447730549635,
       172.84569760649603,
       273.5288554044134,
@@ -326,7 +312,27 @@ int main() {
       2.4151722488333296,
       -10.380933150923628,
       -23.433992381590347
-      } //soln that we are supposed to get
+      } //soln vector
+
+    /*
+   //Fact_Lambda[nstates*nstates*nhorizon*depth]
+   float Fact_lambda[36*8*3]; 
+   float Fact_state[36*8*3];
+   for(std::unit32_t n = 0; n < 864; n++){
+      Fact_lambda[n] = 0;
+      Fact_state[n] = 0;
+   }
+  
+   //Fact_Input[nstates*ninputs*nhorizon*depth]  
+   float Fact_input[18*8*3];
+   for(std::unit32_t n = 0; n < 864; n++) {
+      Fact_input[n] = 0;
+   }
+
+*/
+
+  
+
       
    //when using for soln_vector need to negate q_r and d_d
    
@@ -348,7 +354,7 @@ int main() {
    float* d_d;
    cudaMalloc((void**)&d_d, 48*sizeof(float));
 
-  //do we need to allocate memory for F?
+  /*do we need to allocate memory for F?
    float* d_F_lambda;
    cudaMalloc((void**)&d_F_lambda, 36*8*3*sizeof(float));
 
@@ -357,7 +363,7 @@ int main() {
 
    float* d_F_input;
    cudaMalloc((void**)&d_F_input, 18*8*3*sizeof(float));
-   
+   */
    
    //Copy the matrices from the host to the GPU memory
    //cudaMemcpy(d_x0, x0, 6 * sizeof(float), cudaMemcpyHostToDevice);
@@ -365,10 +371,11 @@ int main() {
    cudaMemcpy(d_q_r, q_r, 72*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_A_B, A_B, 432*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_d, d, 48*sizeof(float), cudaMemcpyHostToDevice);
+/*
    cudaMemcpy(d_F_lambda, F_lambda, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_F_state, F_state, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_F_input, F_input, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
-
+*/
 
    //Launch CUDA kernel with block and grid dimensions
    std::uint32_t blockSize = 256;
