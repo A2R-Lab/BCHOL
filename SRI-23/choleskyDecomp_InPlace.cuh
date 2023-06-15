@@ -45,7 +45,7 @@ void cholDecomp_InPlace(T *s_A, int n) {
 //cgrps version
  template <typename T> 
 __device__ 
-void chol_InPlace_r (std::unit31_t n,
+void chol_InPlace_r (std::uint32_t n,
                         T *s_A,
                         cgrps::thread_group g = cgrps::this_thread_block())
 {
@@ -89,7 +89,7 @@ void chol_InPlace_r (std::unit31_t n,
 //FINAL
 template <typename T> 
 __device__ 
-void cholDecomp_InPlace_c (std::unit31_t n,
+void cholDecomp_InPlace_c (std::uint32_t n,
                         T *s_A,
                         cgrps::thread_group g = cgrps::this_thread_block())
 {
