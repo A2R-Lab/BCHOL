@@ -17,7 +17,7 @@ napesapce cgrps = cooperative_groups;
 //FIRST VERSION
 template <typename T> 
 __device__ 
-void cholDecomp_InPlace( std n, T *s_A) {
+void chol_InPlace( std n, T *s_A) {
     for (uint32_t col = 0; col < n; col++) {
         if (threadIdx.x == 0){
             T sum = 0;
@@ -89,7 +89,7 @@ void chol_InPlace_r (uint32_t n,
 //FINAL
 template <typename T> 
 __device__ 
-void cholDecomp_InPlace_c (uint32_t n,
+void chol_InPlace_c (uint32_t n,
                         T *s_A,
                         cgrps::thread_group g = cgrps::this_thread_block())
 {
