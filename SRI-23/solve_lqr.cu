@@ -380,7 +380,8 @@ int main() {
    //Launch CUDA kernel with block and grid dimensions
    std::uint32_t blockSize = 256;
    std::uint32_t gridSize = 1;
-   solve_Kernel<float><<<gridSize, blockSize>>>(nhorizon, ninputs, nstates, d_x0, d_Q_R, d_q_r, d_A_B, d_d);
+  //the arguments allign with solve.cuh - CHECKED
+   solve_Kernel<float><<<gridSize, blockSize>>>(nhorizon, ninputs, nstates, d_Q_R, d_q_r, d_A_B, d_d);
    cudaDeviceSynchronize();
     
    
