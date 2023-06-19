@@ -17,7 +17,7 @@ napesapce cgrps = cooperative_groups;
 //FIRST VERSION
 template <typename T> 
 __device__ 
-void cholDecomp_InPlace(T *s_A, int n) {
+void cholDecomp_InPlace( std n, T *s_A) {
     for (unsigned col = 0; col < n; col++) {
         if (threadIdx.x == 0){
             T sum = 0;
@@ -45,15 +45,15 @@ void cholDecomp_InPlace(T *s_A, int n) {
 //cgrps version
  template <typename T> 
 __device__ 
-void chol_InPlace_r (std::uint32_t n,
+void chol_InPlace_r (uint32_t n,
                         T *s_A,
                         cgrps::thread_group g = cgrps::this_thread_block())
 {
-    for (unsigned col = 0; col < n; col++) {
+    for (uint32_t col = 0; col < n; col++) {
         if (g.thread_rank() == 0){
             T sum = 0;
             T val = s_A[n*col+col]; //entry Ljj
-            for(std:init32_t col_l = 0 ; col_l < col; col_l++) {
+            for(uint32_t col_l = 0 ; col_l < col; col_l++) {
                 sum += pow(s_A[col*n+col_l],2);
             }
             s_A[col*n+col] = sqrt(val - sum);
@@ -62,11 +62,11 @@ void chol_InPlace_r (std::uint32_t n,
         g.sync(); //here we computed the diagonal entry of the Matrix
         
         // compute the rest of the column
-        for(unsigned row = g.thread_rank()+ col +1; row < n; row += g.size()) 
+        for(uint32_t row = g.thread_rank()+ col +1; row < n; row += g.size()) 
         {
             T sum = 0;
             T val = s_A[row*n+col];
-            for(unsigned k = 0; k < col; k++) {
+            for(uint32_t k = 0; k < col; k++) {
                 sum += s_A[row*n+k]*s_A[col*n+k];
             }
             s_A[row*n+col] = (1.0/s_A[col*n+col])*(s_A[row*n+col]-sum);
@@ -89,7 +89,7 @@ void chol_InPlace_r (std::uint32_t n,
 //FINAL
 template <typename T> 
 __device__ 
-void cholDecomp_InPlace_c (std::uint32_t n,
+void cholDecomp_InPlace_c (uint32_t n,
                         T *s_A,
                         cgrps::thread_group g = cgrps::this_thread_block())
 {
@@ -97,7 +97,7 @@ void cholDecomp_InPlace_c (std::uint32_t n,
         if (g.thread_rank() == 0){
             T sum = 0;
             T val = s_A[n*row+row]; //entry Ljj
-            for(std:init32_t row_l = 0 ; row_l < row; row_l++) {
+            for(uint32_t row_l = 0 ; row_l < row; row_l++) {
                 sum += pow(s_A[row_l*n+row],2);
             }
             s_A[row*n+row] = sqrt(val - sum);
@@ -109,7 +109,7 @@ void cholDecomp_InPlace_c (std::uint32_t n,
         for(unsigned col = g.thread_rank()+ row +1; col < n; col += g.size()) 
         {
             T sum = 0;
-            for(unsigned k = 0; k < row; k++) {
+            for(uint32_t k = 0; k < row; k++) {
                 sum += s_A[k*n+col]*s_A[k*n+row];
             }
             s_A[row*n+col] = (1.0/s_A[row*n+row])*(s_A[row*n+col]-sum);
