@@ -50,62 +50,58 @@ void solveLeaf(uint32_t index,
                T *s_F_state,
                T *s_F_input
                //T *s_c??
-               //cgrps::thread_group g?) {
+               ) {
                
     int k = index;
-    zy_temp[];
-    set_const(nstates*nstates, zy_temp, 0);
+    float* zy_temp;
+    set_const(nstates, 0.0, zy_temp); //checked
                
     if (index ==0) {
-        Q = &Q_R;
-        R = &Q_R[nstates*nstates]; //double check
+        float* Q = &Q_R[0]; //CHECK WITH BRIAN!
+        float* R = &Q_R[nstates*nstates]; 
                
         //Solve the block system of equations.
-        glas::copy(nstates*nstates, s_A_B, s_F_lambda); 
-        glas::scal(nstates*nstates,-1.0, s_F_lambda); //-A'_0
-        set_const(nstates*nstates,s_F_state, 0); 
-        glas::copy(nstates*ninputs,s_A_B[nstates*nstates], s_F_input); //copy  B_0
-        glass:chol_InPlace(ninputs, R);
+        copy(nstates*nstates, s_A_B, s_F_lambda); 
+        scal(nstates*nstates,-1.0, s_F_lambda); //-A'_0 ; 
+       // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
+        copy(nstates*ninputs,s_A_B+[nstates*nstates], s_F_input); //copy  B_0
+        chol_InPlace(ninputs, R); 
         cholSolve_InPlace(R, s_F_input, ninputs, nstates); //ASK XIAN! Fu = R\B
-        cholSolve_InPlace(R, s_q_r[nstates], ninputs, 1);  //zu = R\zu
+        cholSolve_InPlace(R, s_q_r+[nstates], ninputs, 1);  //zu = R\zu
 
         //Solve the block system of eqn (!overwriting d and q_r vectors!)
-        glas::copy(nstates,d,zy_temp); 
-        glas::copy(nstates,q_r, d);
-        glas::gemv(nstates,nstates,-1.0, Q, zy_temp, -1.0, d);  // zy = - Q * zy - zx
-        glass:copy(zy_temp,q_r);
-        glass::scal(nstates,-1.0,q_r); // zx = -zy
-        glass:chol_InPlace(nstates,Q) //not sure if that's ok to have it inplace
-    
+        copy(nstates,d,zy_temp); 
+        copy(nstates,q_r, d);
+        gemv(nstates,nstates,-1.0, Q, zy_temp, -1.0, d);  // zy = - Q * zy - zx
+        copy(nstates,zy_temp,q_r);
+        scal(nstates,-1.0, q_r); // zx = -zy
+        chol_InPlace(nstates, Q); //not sure if that's ok to have it inplace
+
+    //CHECKED until here for agrs - recheck lowbackSub with Xian and A,B transpose
       } else {
           
         int level = 0;
-        Q = &Q_R[0]; 
-        glass:chol_InPlace(nstates,Q);
+        float* Q = &Q_R[0]; 
+        chol_InPlace(nstates,Q);
         
         //Not the last timestep
         if(k<nhorizon -1) {
-            //what to do with level? do I just continue to use k?
-            R = &Q_R[nstaes*nstates];
-            glass:chol_InPlace(ninputs,R);
-            cholSolve_InPlace(R, q_r[nstates], ninputs,1); //zu = R \ zu 
+            float* R = &Q_R[nstaes*nstates];
+            chol_InPlace(ninputs,R);
+            cholSolve_InPlace(R, q_r+[nstates], ninputs,1); //zu = R \ zu 
 
-            glass::copy(A_B[0],F_state);
-            cholSolve_InPlace(Q,F_state,nstates,nstates);
+            copy(nstates*nstates,s_A_B, s_F_state);
+            cholSolve_InPlace(Q, s_F_state, nstates, nstates);
 
-            glass::copy(A_B[nstates*nstates],F_input);
+            copy(A_B+[nstates*nstates],F_input);
             cholSolve_InPlace(R,F_input,ninput, nstates);  //DOUBLE CHECK!
                    
-           //initialize all F matrices of index+1 to 0 - not sure if it should be in solveLeaf
-           set_const(nstates*nstates, 0,  F_lambda[(nstates*nstates)]); 
-           set_const(nstates*nstates, 0,  F_state[(nstates*nstates)]);
-           set_const(nstates*nstates, 0,  F_input[(nstates*nstates)]);
-           //Initialize with -Identity matrix
-           diag_Matrix_set(nstates*nstates,-1 , F_state[(nstates*nstates)]);
+           //Initialize with -Identity matrix the next timestep
+            diag_Matrix_set(nstates*nstates, -1 , s_F_state[(nstates*nstates)]);
         }
 
         //Only the last timestep
-        cholSolve_InPlace(Q,q_r[0]);
+         cholSolve_InPlace(Q,q_r, nstates, 1);
          
         
         //int prev_level = ndlqr_GetIndexLevel(&solver->tree,k-1); ??
@@ -114,10 +110,9 @@ void solveLeaf(uint32_t index,
           //state and control
         //update k
         
-        cholSolve_InPlace(Q,F_state); //solve Q \ -I from previous time step
+        cholSolve_InPlace(Q, s_F_state, nstates, nstates); //solve Q \ -I from previous time step
         }
-    }
-}
+  }
 
 template <typename T> 
 __device__
@@ -155,10 +150,10 @@ void factorInnerProduct(T* A_B, T* fact_state, T* fact_input, T* fact_lambda, in
     F2_lambda = fact_input+linear_index;
 
     double *S = F2_lambda;
-    glass::gemm(nstates, nstates, ninput, 1.0, C1_state, F1_state, -1.0, S); //S = C1x'F1x, why -1.0 and not 0.0?
-    glass::gemm(nstates, ninput, nstates, 1.0, C1_input, F1_input, 1.0, S);
-    glass::gemm(nstates, nstates, nstates, 1.0, C2_state, F2_state, 1.0, S);
-    glass::gemm(nstates, ninput, nstates, C2_input, F2_input, 1.0, S);
+    gemm(nstates, nstates, ninput, 1.0, C1_state, F1_state, -1.0, S); //S = C1x'F1x, why -1.0 and not 0.0?
+    gemm(nstates, ninput, nstates, 1.0, C1_input, F1_input, 1.0, S);
+    gemm(nstates, nstates, nstates, 1.0, C2_state, F2_state, 1.0, S);
+    gemm(nstates, ninput, nstates, C2_input, F2_input, 1.0, S);
 }
 
 template <typename T> 
@@ -204,8 +199,8 @@ void updateShur(T* fact_state, T* fact_input, T* fact_lambda, T* q_r, T* d, int 
     if(calc_lambda) {
         glass::gemm(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda);
     }
-    glass::gemm(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state);
-    glass::gemm(ninput, nstates, 1, -1.0, F_input, f, 1.0, g_input);
+    gemm(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state);
+    gemm(ninput, nstates, 1, -1.0, F_input, f, 1.0, g_input);
 }
 
 
@@ -249,7 +244,8 @@ void solve(uint32_t nhorizon,
     T *s_q_r = s_Q_R + (cost_step)*nhorizon;
     T *s_A_B = s_q_r + (ninputs+nstates)*nhorizon;
     T *s_d = s_A_B + (dyn_step)*nhorizon;
-  
+
+    //can I just continue point to the shared memory?
     T *s_F_lambda = s_d + (nstates*nhorizon);
     T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
     T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
@@ -266,6 +262,7 @@ void solve(uint32_t nhorizon,
     block.sync()
       
     for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
+  
                s_d[ind] *= -1;
     }
     
@@ -274,6 +271,8 @@ void solve(uint32_t nhorizon,
            
     //should solveLeaf in parallel
     for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
+           int level = static_cast<int> (log2((1+ind) & -1 * (1 + ind)));
+//maybe add level to args in solveleaf?
            solveleaf(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(cost_step),
                      s_q_r+ind*(ninputs+nstates), s_A_B+ind*(dyn_step),
                      s_d+ind*nstates, s_F_lambda, s_F_state, s_F_input);
