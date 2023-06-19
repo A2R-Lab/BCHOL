@@ -18,11 +18,11 @@ napesapce cgrps = cooperative_groups;
 template <typename T> 
 __device__ 
 void cholDecomp_InPlace( std n, T *s_A) {
-    for (unsigned col = 0; col < n; col++) {
+    for (uint32_t col = 0; col < n; col++) {
         if (threadIdx.x == 0){
             T sum = 0;
             T val = s_A[n*col+col]; //entry Ljj
-            for(unsigned col_l = 0 ; col_l < col; col_l++) {
+            for(uint32_t col_l = 0 ; col_l < col; col_l++) {
                 sum += pow(s_A[col*n+col_l],2);
             }
             s_A[col*n+col] = sqrt(val - sum);
@@ -30,10 +30,10 @@ void cholDecomp_InPlace( std n, T *s_A) {
         }
         __syncthreads(); //here we computed the diagonal entry of the column
         // compute the rest of the column
-        for(unsigned row = threadIdx.x + col +1; row < n; row += blockDim.x){
+        for(uint32_t row = threadIdx.x + col +1; row < n; row += blockDim.x){
             T sum = 0;
             T val = s_A[row*n+col];
-            for(unsigned k = 0; k < col; k++) {
+            for(uint32_t k = 0; k < col; k++) {
                 sum += s_A[row*n+k]*s_A[col*n+k];
             }
             s_A[row*n+col] = (1.0/s_A[col*n+col])*(s_A[row*n+col]-sum);
