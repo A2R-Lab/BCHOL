@@ -367,5 +367,12 @@ void solve(uint32_t nhorizon,
       block.sync();
       // Propagate information to solution vector
       //    y = y - F zbar
+      for(uint32_t k = thread_id; k < nhorizon; k+=block_dim) {
+        uint32_t index ; //FIGURE OUT
+        bool calc_lambda = shouldCalcLmabda();
+        UpdateShur(s_F_state,s_F_input,s_F_lambda, s_q_r, s_d, index, k , level, 0,
+                   calc_lambda, nstates,ninputs, nhorizon);
+      }
+      block.sync();
     }
   }           
