@@ -52,7 +52,7 @@ void solveLeaf(uint32_t index,
                //T *s_c??
                ) {
                
-    int k = index;
+
     float* zy_temp;
     set_const(nstates, 0.0, zy_temp); //checked
                
@@ -259,7 +259,7 @@ void solve(uint32_t nhorizon,
                s_q_r[ind] *= -1;
     }
     //sync threads
-    block.sync()
+    grid.sync()
       
     for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
   
@@ -267,7 +267,7 @@ void solve(uint32_t nhorizon,
     }
     
     //sync threads
-    block.sync()
+    grid.sync()
            
     //should solveLeaf in parallel
     for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
@@ -279,8 +279,8 @@ void solve(uint32_t nhorizon,
                      //s_F_lambda+ind*(states_sq), s_F_state+ind*(states_sq),s_F_input+ind*(inputs_sq) for F matrices use getIndexTree?
     }
     
-    //sync block
     grid.sync();
+
     if(debug) {
       if(block_id == 0 && thread_id == 0) {
         for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
@@ -290,42 +290,82 @@ void solve(uint32_t nhorizon,
         }
       }
     }
-    //grid or block sync?
-    grid.sync()
+    grid.sync();
     
-    //Solve factorization
-    for(uint32_t level = 0; level < depth; level += ) {
+    //Solve factorization -can do in parallel?
+    for(uint32_t level = 0; level < depth; ++level ) {
       uint32_t numleaves = pow(2.0, (depth-level-1) );
 
       //Calc Inner Profucts
       uint32_t cur_depth = depth - level;
       uint32_t num_products = numleaves * cur_depth;
 
-      //in parallel
+      //in parallel block or thread?
       for(uint32_t ind= block_id; i < numproducts; ind +=grid_dim) {
        uint32_t leaf = ind/ cur_depth;
        uint32_t upper_level = level+ (i/cur_depth);
        uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-       factorInnerProduct();
+       factorInnerProduct(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, states, ninput, nhorizon);
       }
       //in original code syncs here before proceeding
+      grid.sync();
       
-      //Cholesky factorization block/thread_id?
-      for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_di,) {
+      //Cholesky factorization- XIAN
+      for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_dim) {
         uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
         float* S = F_lambda[lin_ind+1];
-        //getSfactorizatoin
-        
-        
-        
-        // * @brief Use the precomputed Cholesky factorization to solve for y at each parent level
-        //solveCholFactor()
-      }
-    }
+        //get Sbat matrix calculated above
 
-  
-  
-  
-  
-}
-           
+      }
+      //Solve with Cholesky factor for f
+      uint32_t upper_levels = cur_depth-1;   
+      uint32_t num_solves = numleaves*upper_levels;
+      //check if in block or grid
+      for (uint32_t i =thread_id; i < num_solves; i+=block_dim) {
+
+      }
+
+      //Shur compliments
+      uint32_t num_factors = nhorizon *upper_levels;
+      //thread or block?
+      for (uint32_t i = thread_id ; i < num_factors; i+=block_dim) {
+        uint32_t k = i/upper_levels;
+        uint32_t upper_level = level+1+( i %upper_levels);
+
+        uint32_t index ; //FIGURE OUT
+        bool calc_lambda = shouldCalcLambda();
+        updateShur(s_F_state, s_F_input, s_F_lambda, s_q_r, s_d,  index,  i,  level, upper_level, 
+                    calc_lambda, nstates,  ninput, nhorizon);
+        }
+        block.sync();
+    }
+    //solve for solution vector using the cached factorization
+    for (uint32_t level = 0; level < depth; ++level) {
+      uint32_t numleaves = pow(2.0, (depth-level-1) );
+
+      //calculate inner products with rhs, with factors computed above
+      //in parallel
+      for(uint32_t leaf = thread_id; leaf < numleaves; leaf+=block_dim) {
+          uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
+          // Calculate z = d - F'b1 - F2'b2
+          factorInnerProduct(s_A_B, s_d, s_q_r, s_q_r+nstates, lin_ind, level, 0, nstates, ninput, nhorizon);
+      }
+      block.sync();
+    //Solve for separator variables with cached Cholesky decomposition
+      for(uint32_t leaf = thread_id; leaf < numleaves; leaf +=block_dim) {
+          uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
+
+           // Get the Sbar Matrix calculated above
+           float* Sbar = s_F_lambda + (level*nhorizon+index+1);
+           float* zy = s_d + index+1;
+        // Solve (S - C1'F1 - C2'F2)^{-1} (d - F1'b1 - F2'b2) -> Sbar \ z = zbar
+        //                 |                       |
+        //    reuse Cholesky factorization   Inner product calculated above
+        getSfactorization;
+        chol_SolveInPlace(Sbar, zy, nstates, nstates);
+      }
+      block.sync();
+      // Propagate information to solution vector
+      //    y = y - F zbar
+    }
+  }           
