@@ -305,7 +305,7 @@ void solve(uint32_t nhorizon,
        uint32_t leaf = ind/ cur_depth;
        uint32_t upper_level = level+ (i/cur_depth);
        uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-       factorInnerProduct(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, states, ninput, nhorizon);
+       factorInnerProduct(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, nstates, ninput, nhorizon);
       }
       //in original code syncs here before proceeding
       grid.sync();
@@ -313,16 +313,18 @@ void solve(uint32_t nhorizon,
       //Cholesky factorization- XIAN
       for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_dim) {
         uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-        float* S = F_lambda[lin_ind+1];
-        //get Sbat matrix calculated above
-
+        double* S = F_lambda[lin_ind+1];
+        chol_InPlace(nstates, S);
       }
       //Solve with Cholesky factor for f
       uint32_t upper_levels = cur_depth-1;   
       uint32_t num_solves = numleaves*upper_levels;
       //check if in block or grid
       for (uint32_t i =thread_id; i < num_solves; i+=block_dim) {
-
+        uint32_t leaf = i / upper_levels;
+        uint32_t upper_level = level + 1 + (i % upper_levels);
+        uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
+        SolveCholeskyFactor(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, nstates, ninput, nhorizon);
       }
 
       //Shur compliments
