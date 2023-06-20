@@ -167,6 +167,36 @@ void SolveCholeskyFactor(T* fact_state, T* fact_input, T* fact_lambda, int index
 
 template <typename T> 
 __device__
+bool shouldCalcLambda(int index, int i) {
+    if(i == 0) {
+      return True;
+    }
+    if(index == 0 && (i == 0 || i == 1)) {
+      return False;
+    }
+    if(index == 1 && (i == 0 || i == 2)) {
+      return False;
+    }
+    if(index == 2 && (i == 2 || i == 3)) {
+      return False;
+    }
+    if(index == 3 && (i == 0 || i == 4)) {
+      return False;
+    }
+    if(index == 4 && (i == 4 || i == 5)) {
+      return False;
+    }
+    if(index == 5 && (i == 4 || i == 6)) {
+      return False;
+    }
+    if(index == 6 && (i == 6 || i == 7)) {
+      return False;
+    }
+    return True;
+}
+
+template <typename T> 
+__device__
 void updateShur(T* fact_state, T* fact_input, T* fact_lambda, T* q_r, T* d, int index, int i, int level, int upper_level, bool calc_lambda, int nstates, int ninput, int nhorizon) {
     double* f_factor_state;
     double* f_factor_input;
@@ -335,7 +365,7 @@ void solve(uint32_t nhorizon,
         uint32_t upper_level = level+1+( i %upper_levels);
 
         uint32_t index ; //FIGURE OUT
-        bool calc_lambda = shouldCalcLambda();
+        bool calc_lambda = shouldCalcLambda(index, k);
         updateShur(s_F_state, s_F_input, s_F_lambda, s_q_r, s_d,  index,  i,  level, upper_level, 
                     calc_lambda, nstates,  ninput, nhorizon);
         }
@@ -371,7 +401,7 @@ void solve(uint32_t nhorizon,
       //    y = y - F zbar
       for(uint32_t k = thread_id; k < nhorizon; k+=block_dim) {
         uint32_t index ; //FIGURE OUT
-        bool calc_lambda = shouldCalcLmabda();
+        bool calc_lambda = shouldCalcLmabda(index, k);
         UpdateShur(s_F_state,s_F_input,s_F_lambda, s_q_r, s_d, index, k , level, 0,
                    calc_lambda, nstates,ninputs, nhorizon);
       }
