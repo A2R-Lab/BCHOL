@@ -1,13 +1,14 @@
 #pragma once
 #include <stdint.h>
 #include <cuda_runtime.h>
-#includ <cmath>
+#include <cmath>
 #include <cooperative_groups.h>
-#include "./GLASS/GLASS.cuh"
+#include "../../GLASS/glass.cuh"
 //should we put into one header file?
 
 #include "lowerBackSub.cuh"
-#include "choleskyDecomp_InPlace.cuh"
+#include "chol_SolveInPlace.cuh"
+#include "chol_InPlace.cuh"
 #include "./help_functions/diag_Matrix_set.cuh"
 #include "./help_functions/set_const.cuh"
 

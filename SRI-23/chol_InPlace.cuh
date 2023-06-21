@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <cooperative_groups.h>
-napesapce cgrps = cooperative_groups;
+namespace cgrps = cooperative_groups;
 #include <cmath>
 
 /**
@@ -17,7 +17,7 @@ napesapce cgrps = cooperative_groups;
 //FIRST VERSION
 template <typename T> 
 __device__ 
-void chol_InPlace( std n, T *s_A) {
+void chol_InPlace(int n, T *s_A) {
     for (uint32_t col = 0; col < n; col++) {
         if (threadIdx.x == 0){
             T sum = 0;
