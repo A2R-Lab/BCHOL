@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cmath>
+#include "lowerBackSub.cuh"
 
 //Solves linear system of equations with Cholesky
 template <typename T>

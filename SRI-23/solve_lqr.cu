@@ -9,6 +9,7 @@
 
 __host__
 int main() {
+  printf("Run Test\n");
 //Info about LQR problem
 
   const uint32_t nhorizon = 8;
@@ -390,9 +391,12 @@ int main() {
    
    
    //Copy back to the host
-   cudaMemcpy();
-   
+   cudaMemcpy(q_r,d_q_r, 72*sizeof(float),cudaMemcpyDeviceToHost);
+   cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
+
    //Free allocated GPU memory
-   cudaFree();
-   
+   cudaFree(d_Q_R);
+   cudaFree(d_q_r);
+   cudaFree(d_A_B);
+   cudaFree(d_d);
 }
