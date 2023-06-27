@@ -354,6 +354,7 @@ int main() {
 
    float* d_d;
    cudaMalloc((void**)&d_d, 48*sizeof(float));
+   printf("Allocated memory\n");
 
   /*do we need to allocate memory for F?
    float* d_F_lambda;
@@ -379,9 +380,9 @@ int main() {
 */
 
    //Launch CUDA kernel with block and grid dimensions
-   std::uint32_t blockSize = 256;
+   std::uint32_t blockSize = 1;
    std::uint32_t gridSize = 1;
-  //the arguments allign with solve.cuh - CHECKED
+   //the arguments allign with solve.cuh - CHECKED
    solve_Kernel<float><<<gridSize, blockSize>>>(nhorizon, ninputs, nstates, d_Q_R, d_q_r, d_A_B, d_d);
    cudaDeviceSynchronize();
     

@@ -10,7 +10,7 @@
 #include "chol_SolveInPlace.cuh"
 #include "./help_functions/diag_Matrix_set.cuh"
 #include "./help_functions/set_const.cuh"
-
+__device__ const bool DEBUG = true;
 
 namespace cgrps = cooperative_groups;
 
@@ -250,7 +250,10 @@ void solve_Kernel(uint32_t nhorizon,
            T *d_F_state,
            T *d_F_input*/ )
 //what is exit_tol?
-{
+{   
+
+    if(DEBUG)
+    printf("Launched Kernel\n");
     //Ask Emre about cgrps again!
     const cgrps::thread_block block = cgrps::this_thread_block();	 
     const cgrps::grid_group grid = cgrps::this_grid();
@@ -280,11 +283,14 @@ void solve_Kernel(uint32_t nhorizon,
     T *s_F_lambda = s_d + (nstates*nhorizon);
     T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
     T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
-           
+
+    //debug
+    // glass::scal<float>(states_sq, 1, s_Q_R);
+    printf("working!\n");    
     //initialize ALL F matrices to 0s
     set_const<float>(states_sq*nhorizon*depth+states_sq*nhorizon*depth+inp_states*nhorizon*depth,
                0, s_F_lambda);
-           
+    printf("working?\n");     
     //negate q_r,d vectors (using threads)
     for (uint32_t ind = thread_id; ind < (ninputs+nstates)*nhorizon; ind+=block_dim){
                s_q_r[ind] *= -1;
@@ -299,7 +305,9 @@ void solve_Kernel(uint32_t nhorizon,
     
     //sync threads
     grid.sync();
-           
+    
+    printf("loop 1");
+
     //should solveLeaf in parallel
     for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
            int level = static_cast<int> (log2f((1+ind) & -1 * (1 + ind)));
@@ -311,18 +319,18 @@ void solve_Kernel(uint32_t nhorizon,
     }
     
     grid.sync();
-/*
-    if(debug) {
+
+    if(DEBUG) {
       if(block_id == 0 && thread_id == 0) {
         for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
-          printf("s_F_lambda[%d], %.2f\n", ind, s_F_lambda[i]);
-          printf("s_F_state[%d], %.2f\n", ind, s_F_state[i]);
-          printf("s_F_input[%d],%.2f\n", ind, s_F_input[i]);
+          printf("s_F_lambda[%d], %.2f\n", ind, s_F_lambda[ind]);
+          printf("s_F_state[%d], %.2f\n", ind, s_F_state[ind]);
+          printf("s_F_input[%d],%.2f\n", ind, s_F_input[ind]);
         }
       }
     }
     grid.sync();
-    */
+    
     //Solve factorization -can do in parallel?
     for(uint32_t level = 0; level < depth; ++level ) {
       uint32_t numleaves = pow(2.0, (depth-level-1) );
