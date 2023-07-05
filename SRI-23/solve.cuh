@@ -65,28 +65,14 @@ template <typename T>
 
   float* zy_temp = s_F_lambda+nstates*nstates;
   set_const<float>(nstates, 0.0, zy_temp); 
-  if(DEBUG){
-    printf("INDEX, %d", index);
-    printf("\n d: \n");
-    printMatrix(s_d,1,nstates);
-    /*
-            printf("\nF_lambda\n" );
-            printMatrix(s_F_lambda,nstates,nstates);
-
-            printf("\nF_state: \n" );
-            printMatrix(s_F_state,nstates,nstates);
-
-            printf("\nF_input: \n");
-            printMatrix(s_F_input, nstates,ninputs);*/
-
-  }
-  if (index ==0) {
+  
+  if (index == 0) {
     float* Q = &s_Q_R[0]; 
     float* R = &s_Q_R[nstates*nstates]; 
-
+    
     //Solve the block system of equations.
-    glass::copy<float>(nstates*nstates, 1.0, s_A_B, s_F_lambda); 
-    glass::scal<float>(nstates*nstates,-1.0, s_F_lambda, cgrps::this_thread_block()); //-A'_0 ; 
+    glass::copy<float>(nstates*nstates, -1.0, s_A_B, s_F_lambda, cgrps::this_thread_block());
+    glass::scal<float>(nstates*nstates,-1.0, s_F_lambda, cgrps::this_thread_block()); //-A'_0; 
     // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
 
     glass::copy<float>(nstates*ninputs,1.0, s_A_B+nstates*nstates, s_F_input); //copy  B_0
@@ -101,7 +87,6 @@ template <typename T>
     glass::copy<float>(nstates,1.0,zy_temp,s_q_r);
 
     set_const<float>(nstates, 0.0, zy_temp); //initialize back to 0s
-
 
   } else {
 
@@ -323,11 +308,12 @@ template <typename T>
   for (unsigned i = thread_id; i < (nstates+ninputs)*nhorizon; i +=block_dim) {
     s_q_r[i] = d_q_r[i];
   }
+
   for (unsigned i = thread_id; i < (states_sq+inp_states)*nhorizon; i +=block_dim) {
     s_A_B[i] = d_A_B[i]; 
   }
-  for(unsigned i = thread_id; i < nhorizon*nstates; i += block_dim)
-  {
+  
+  for(unsigned i = thread_id; i < nhorizon*nstates; i += block_dim) {
     s_d[i] = d_d[i];
   }
 
@@ -345,7 +331,6 @@ template <typename T>
   //sync threads
   block.sync();
   for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
-
     s_d[ind] *= -1;
   }
 
@@ -353,29 +338,29 @@ template <typename T>
   block.sync();
 
   //checking initialization - WORKS
-  if(DEBUG){
-    if(thread_id==0 && block_id ==0 ) {
+  if(!DEBUG){
+    if(thread_id==0 && block_id ==0) {
 
       printf("PRINTING ALL DATA AFTER INIT\n");
-      for(unsigned i = 0; i < nhorizon; i++) { /*
-          printf("\nQ%d: \n", i);
-          printMatrix(s_Q_R+(i*cost_step),nstates,nstates);
+      for(unsigned i = 0; i < nhorizon; i++) {
+        printf("\nQ%d: \n", i);
+        printMatrix(s_Q_R+(i*cost_step),nstates,nstates);
 
-          printf("\nR%d: \n", i);
-          printMatrix(s_Q_R+(i*cost_step+states_sq),ninputs,ninputs);
+        printf("\nR%d: \n", i);
+        printMatrix(s_Q_R+(i*cost_step+states_sq),ninputs,ninputs);
 
-          printf("\nq%d: \n", i);
-          printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
 
-          printf("\nr%d: \n", i);
-          printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
 
-          printf("\nA%d: \n", i);
-          printMatrix(s_A_B+(i*dyn_step),nstates,nstates);
+        printf("\nA%d: \n", i);
+        printMatrix(s_A_B+(i*dyn_step),nstates,nstates);
 
-          printf("\nB%d: \n", i);
-          printMatrix(s_A_B+(i*dyn_step+states_sq),nstates,ninputs);
-*/
+        printf("\nB%d: \n", i);
+        printMatrix(s_A_B+(i*dyn_step+states_sq),nstates,ninputs);
+
         printf("\nd%d: \n", i);
         printMatrix(s_d+i*nstates,1,nstates);        
       } 
@@ -398,62 +383,22 @@ template <typename T>
 
   }
 
-
   //should solveLeaf in parallel
 
-  /*
-    for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
-      if(DEBUG){
-        printf("CHECK D");
-        printf("INDEX, %d", ind);
-        printf("\n d: \n");
-        printMatrix(s_d+ind*nstates,1,nstates);
-      }
-      int level = s_levels[ind];
-    //maybe add level to args in solveleaf?
-      solveLeaf<float>(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(cost_step),
-                     s_q_r+ind*(ninputs+nstates), s_A_B+ind*(dyn_step),
-                     s_d+ind*nstates, s_F_lambda+(level*nhorizon+ind-1)*states_sq, s_F_state+(level*nhorizon+ind-1)*states_sq,
-                      s_F_input+(level*nhorizon+ind-1)*inp_states); //ACCOUNT FOR LEVEL!
-    }
-    */
-  for (uint32_t ind = 0; ind < nhorizon; ind++) {
-    if(DEBUG){
-      printf("CHECK D");
-      printf("INDEX, %d", ind);
-      printf("\n d: \n");
-      printMatrix(s_d+ind*nstates,1,nstates);
-    }
+  for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
     int level = s_levels[ind];
-    //maybe add level to args in solveleaf?
     solveLeaf<float>(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(cost_step),
-                     s_q_r+ind*(ninputs+nstates), s_A_B+ind*(dyn_step),
-                     s_d+ind*nstates, s_F_lambda+(level*nhorizon+ind-1)*states_sq, s_F_state+(level*nhorizon+ind-1)*states_sq,
-                     s_F_input+(level*nhorizon+ind-1)*inp_states); //ACCOUNT FOR LEVEL!
+                    s_q_r+ind*(ninputs+nstates), s_A_B+ind*(dyn_step),
+                    s_d+ind*nstates, s_F_lambda+(level*nhorizon+ind)*states_sq, s_F_state+(level*nhorizon+ind)*states_sq,
+                    s_F_input+(level*nhorizon+ind)*inp_states);
   }
-
 
   //for some reason doesn't work when I call here grid.sync()
   block.sync();
 
-  //checking what happens after solve leaf
-  if(DEBUG){
-    if(thread_id==0 && block_id ==0 ) {
-
-      printf("PRINTING ALL DATA AFTER SOLVE LEAF FOR d\n");
-      for(unsigned i = 0; i < nhorizon; i++) { 
-        printf("\nd%d: \n", i);
-        printMatrix(s_d+i*nstates,1,nstates);
-      }
-
-    }
-
-  }
-
-
-  if(DEBUG==false) {
+  if(!DEBUG) {
     if(block_id == 0 && thread_id == 0) {
-      printf("CHECKING DATA AFTER SOLVE_LEAF");/*
+      printf("CHECKING DATA AFTER SOLVE_LEAF");
         for(unsigned i = 0; i < nhorizon; i++) { 
           printf("\nd%d: \n", i);
           printMatrix(s_d+i*nstates,1,nstates);      
@@ -464,7 +409,7 @@ template <typename T>
           printf("\nr%d: \n", i);
           printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
 
-        }*/
+        }
 
 
       for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
@@ -495,10 +440,51 @@ template <typename T>
 
     //in parallel block or thread?
     for(uint32_t ind= block_id; ind < num_products; ind +=grid_dim) {
-      uint32_t leaf = ind/ cur_depth;
-      uint32_t upper_level = level+ (ind/cur_depth);
+      uint32_t leaf = ind / cur_depth;
+      uint32_t upper_level = level + (ind % cur_depth);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, nstates, ninputs, nhorizon);
+      if(DEBUG){
+        if(thread_id==0 && block_id==0) {
+          printf("factor inner product, leaf: %d; upper level: %d; lin_ind: %d\n", leaf, upper_level, lin_ind);
+          // for(unsigned i = 0; i < nhorizon; i++) {
+          //   printf("\nQ%d: \n", i);
+          //   printMatrix(s_Q_R+(i*cost_step),nstates,nstates);
+
+          //   printf("\nR%d: \n", i);
+          //   printMatrix(s_Q_R+(i*cost_step+states_sq),ninputs,ninputs);
+
+          //   printf("\nq%d: \n", i);
+          //   printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+          //   printf("\nr%d: \n", i);
+          //   printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+          //   printf("\nA%d: \n", i);
+          //   printMatrix(s_A_B+(i*dyn_step),nstates,nstates);
+
+          //   printf("\nB%d: \n", i);
+          //   printMatrix(s_A_B+(i*dyn_step+states_sq),nstates,ninputs);
+
+          //   printf("\nd%d: \n", i);
+          //   printMatrix(s_d+i*nstates,1,nstates);        
+          // } 
+
+          for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+            if(ind%nhorizon==0){ 
+              printf("\nLEVEL %d\n", ind/nhorizon);
+            } 
+            printf("\nF_lambda[%d]\n", ind);
+            printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+            printf("\nF_state%d: \n", ind);
+            printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+            printf("\nF_input%d: \n", ind);
+            printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
+          }
+        }    
+      }
     }
     //in original code syncs here before proceeding
     grid.sync();
