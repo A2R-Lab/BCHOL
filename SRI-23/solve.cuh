@@ -117,8 +117,8 @@ template <typename T>
 }
 
 template <typename T> 
-  __device__
-  void factorInnerProduct(T* s_A_B, T* fact_state, T* fact_input, T* fact_lambda, int index, int data_level, int fact_level, uint32_t nstates, uint32_t ninputs, uint32_t nhorizon) {
+__device__
+void factorInnerProduct(T* s_A_B, T* fact_state, T* fact_input, T* fact_lambda, int index, int data_level, int fact_level, uint32_t nstates, uint32_t ninputs, uint32_t nhorizon) {
   float* C1_state;
   float* C1_input;
 
@@ -132,28 +132,28 @@ template <typename T>
   float* F2_state;
   float* F2_input;
   float* F2_lambda;
-  int dyn_step = nstates*nstates+ninputs*ninputs;
+
+  int dyn_step = nstates*nstates+nstates*ninputs;
 
   //no need for tree conversion int linear_index = index + nhorizon * data_level;
-  C1_state = s_A_B+(index * dyn_step); 
-  C1_input = s_A_B+(index * dyn_step + nstates * nstates);
+  C1_state = s_A_B + (index*dyn_step); 
+  C1_input = s_A_B + (index*dyn_step + nstates*nstates);
 
-  uint32_t linear_index = index + nhorizon * fact_level; //Not sure
-  F1_state = fact_state+linear_index;
-  F1_input = fact_input+linear_index;
-  F1_lambda = fact_lambda+linear_index;
+  uint32_t linear_index = index + nhorizon * fact_level;
+  F1_state = fact_state + linear_index*(nstates*nstates);
+  F1_input = fact_input + linear_index*(nstates*nstates);
+  F1_lambda = fact_lambda + linear_index*(nstates*ninputs);
 
-  //linear_index = (index + 1) + nhorizon * data_level;
-  C2_state = s_A_B+(index * dyn_step);
-  C2_input = s_A_B+(index * dyn_step + nstates * nstates);
+  C2_state = s_A_B + (index * dyn_step);
+  C2_input = s_A_B + (index * dyn_step + nstates * nstates);
 
   linear_index = (index + 1) + nhorizon * fact_level;
-  F2_state = fact_state+linear_index;
-  F2_input = fact_input+linear_index;
-  F2_lambda = fact_input+linear_index;
-
+  F2_state = fact_state + linear_index*(nstates*nstates);
+  F2_input = fact_input + linear_index*(nstates*nstates);
+  F2_lambda = fact_input + linear_index*(nstates*ninputs);
+  
   float *S = F2_lambda;
-  glass::gemm<float,0>(nstates, nstates, ninputs, 1.0, C1_state, F1_state,-1.0, S,cgrps::this_thread_block()); //S = C1x'F1x, or S = C1x'F1x-S? Former in comment, latter in code ???
+  glass::gemm<float,0>(nstates, nstates, ninputs, 1.0, C1_state, F1_state, -1.0, S,cgrps::this_thread_block()); //S = C1x'F1x
   glass::gemm<float,0>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0,S,cgrps::this_thread_block());
   glass::gemm<float,0>(nstates, nstates, nstates, 1.0, C2_state, F2_state, 1.0,S,cgrps::this_thread_block());
   glass::gemm<float,0>(nstates, ninputs, nstates, 1.0, C2_input, F2_input, 1.0,S,cgrps::this_thread_block());
@@ -481,7 +481,7 @@ template <typename T>
             printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
 
             printf("\nF_input%d: \n", ind);
-            printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
+            printMatrix(s_F_input+ind*inp_states,nstates,ninputs);
           }
         }    
       }
