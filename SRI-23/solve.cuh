@@ -40,7 +40,7 @@ template <typename T>
   void printMatrix(T* matrix, uint32_t cols, uint32_t rows) {
   for (unsigned i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
-      printf("%.2f  ",matrix[i*cols+j]);
+      printf("%.3f  ",matrix[i*cols+j]);
     }
     printf("\n");
   }
@@ -71,8 +71,16 @@ template <typename T>
     float* R = &s_Q_R[nstates*nstates]; 
     
     //Solve the block system of equations.
+    if(DEBUG){
+      printf("CHECK s_A_B: ");
+      printMatrix(s_A_B,nstates, nstates);
+    }
     glass::copy<float>(nstates*nstates, -1.0, s_A_B, s_F_lambda, cgrps::this_thread_block());
-    glass::scal<float>(nstates*nstates,-1.0, s_F_lambda, cgrps::this_thread_block()); //-A'_0; 
+    glass::scal<float>(nstates*nstates, -1.0, s_F_lambda, cgrps::this_thread_block()); //-A'_0; 
+    if(DEBUG){
+      printf("CHECK s_F_Lambda: ");
+      printMatrix(s_F_lambda,nstates, nstates);
+    }
     // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
 
     glass::copy<float>(nstates*ninputs,1.0, s_A_B+nstates*nstates, s_F_input); //copy  B_0
@@ -87,6 +95,10 @@ template <typename T>
     glass::copy<float>(nstates,1.0,zy_temp,s_q_r);
 
     set_const<float>(nstates, 0.0, zy_temp); //initialize back to 0s
+     if(DEBUG){
+      printf("CHECK s_F_Lambda: ");
+      printMatrix(s_F_lambda,nstates, nstates);
+    }
 
   } else {
 
@@ -107,9 +119,8 @@ template <typename T>
       cholSolve_InPlace<float>(R, s_F_input, false, ninputs, nstates);  //DOUBLE CHECK!
 
       //Initialize with -Identity matrix the next timestep
-      diag_Matrix_set<float>(nstates*nstates, -1 , s_F_state+(nstates*nstates));
+      diag_Matrix_set<float>(nstates*nstates, -1.0 , s_F_state+(nstates*nstates));
     }
-
     //Only the last timestep
     cholSolve_InPlace<float>(Q, s_q_r, false, nstates, 1);        
     cholSolve_InPlace<float>(Q, s_F_state, false, nstates, nstates); //solve Q \ -I from previous time step
@@ -396,7 +407,7 @@ template <typename T>
   //for some reason doesn't work when I call here grid.sync()
   block.sync();
 
-  if(!DEBUG) {
+  if(DEBUG) {
     if(block_id == 0 && thread_id == 0) {
       printf("CHECKING DATA AFTER SOLVE_LEAF");
         for(unsigned i = 0; i < nhorizon; i++) { 
@@ -444,7 +455,7 @@ template <typename T>
       uint32_t upper_level = level + (ind % cur_depth);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, nstates, ninputs, nhorizon);
-      if(DEBUG){
+      if(!DEBUG){
         if(thread_id==0 && block_id==0) {
           printf("factor inner product, leaf: %d; upper level: %d; lin_ind: %d\n", leaf, upper_level, lin_ind);
           // for(unsigned i = 0; i < nhorizon; i++) {
