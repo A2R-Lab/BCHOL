@@ -83,7 +83,7 @@ template <typename T>
   float* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
   float* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
   //
-  float* zy_temp = F_lambda+nstates*nstates;
+  float* zy_temp = &s_F_state[nhorizon*states_sq];
   set_const<float>(nstates, 0.0, zy_temp); 
   
   if (index == 0) {
