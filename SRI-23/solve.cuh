@@ -48,7 +48,8 @@ template <typename T>
 
 template <typename T> 
   __device__
-  void solveLeaf(uint32_t index,
+  void solveLeaf(uint32_t level,
+                 uint32_t index,
                  uint32_t nstates,
                  uint32_t ninputs,
                  uint32_t nhorizon,
@@ -78,9 +79,9 @@ template <typename T>
   float* B = &s_A_B[index*dyn_step+states_sq];
   float* d = &s_d[index*nstates];
   //fact matrices
-  float* F_lambda = &s_F_lambda[index*states_sq];
-  float* F_state = &s_F_state[index*states_sq];
-  float* F_input = &s_F_input[index*inp_states];
+  float* F_lambda = &s_F_lambda[(index + nhorizon * level)*states_sq];
+  float* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
+  float* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
   //
   float* zy_temp = F_lambda+nstates*nstates;
   set_const<float>(nstates, 0.0, zy_temp); 
@@ -128,7 +129,9 @@ template <typename T>
       cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  //DOUBLE CHECK!
 
       //Initialize with -Identity matrix the next timestep
-      diag_Matrix_set<float>(nstates*nstates, -1.0 , F_state+(nstates*nstates));
+      diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
+      printf("Checking diag_set");
+      printMatrix(F_state+(states_sq),nstates,nstates);
     }
     //Only the last timestep
     cholSolve_InPlace<float>(Q, q, false, nstates, 1);        
@@ -408,7 +411,7 @@ template <typename T>
 
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
     int level = s_levels[ind];
-    solveLeaf<float>(ind, nstates, ninputs, nhorizon,
+    solveLeaf<float>(level, ind, nstates, ninputs, nhorizon,
                     s_Q_R, s_q_r, s_A_B,s_d, 
                     s_F_lambda, s_F_state, s_F_input);
   }
