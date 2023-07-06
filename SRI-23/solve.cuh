@@ -417,7 +417,7 @@ template <typename T>
   block.sync();
 
   if(DEBUG) {
-    if(!DEBUG){
+
     if(block_id == 0 && thread_id == 0) {
       printf("CHECKING DATA AFTER SOLVE_LEAF");
         for(unsigned i = 0; i < nhorizon; i++) { 
@@ -432,7 +432,7 @@ template <typename T>
 
         }
     }
-      if(DEBUG) {
+
       for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
         if(ind%nhorizon==0){ 
           printf("\nLEVEL %d\n", ind/nhorizon);
@@ -447,8 +447,6 @@ template <typename T>
         printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
 
       }
-    }
-    }
   }
   block.sync();
 
