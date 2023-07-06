@@ -112,7 +112,6 @@ template <typename T>
 
   } else {
 
-    int level = 0;
     float* Q = &s_Q_R[index*cost_step]; 
     chol_InPlace<float>(nstates,Q);
 
@@ -129,15 +128,32 @@ template <typename T>
       cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  //DOUBLE CHECK!
 
       //Initialize with -Identity matrix the next timestep
-      diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
-      printf("Checking diag_set");
-      printMatrix(F_state+(states_sq),nstates,nstates);
+      //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
+
     }
     //Only the last timestep
     cholSolve_InPlace<float>(Q, q, false, nstates, 1);        
     cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates); //solve Q \ -I from previous time step
   }
+  //Initialize with -Identity matrix the next timestep
+  diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
+  if(DEBUG) {
+    for(uint32_t ind = 0; ind < nhorizon * 3 ;  ind++) {
+          printf("INSIDE SOLVELEAF %d", index);
+          if(ind%nhorizon==0){ 
+            printf("\nLEVEL %d\n", ind/nhorizon);
+          } 
+            printf("\nF_lambda[%d]\n", ind);
+            printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
 
+            printf("\nF_state%d: \n", ind);
+            printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+            printf("\nF_input%d: \n", ind);
+            printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
+
+        }
+  }
 }
 
 template <typename T> 
