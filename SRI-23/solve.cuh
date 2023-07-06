@@ -62,69 +62,79 @@ template <typename T>
                  //T *s_c??
                 ) {
 
+  
+  //const for KKT matrix
+  const uint32_t states_sq = nstates*nstates;
+  const uint32_t inputs_sq = ninputs*ninputs;
+  const uint32_t inp_states = ninputs*nstates;
+  const uint32_t cost_step = states_sq+inputs_sq;
+  const uint32_t dyn_step = states_sq+inp_states;
 
-  float* zy_temp = s_F_lambda+nstates*nstates;
+
+  //setting up arrays for specific indexes
+  float* q = &s_q_r[index*(ninputs+nstates)];
+  float* r = &s_q_r[index*(ninputs+nstates)+nstates];
+  float* A = &s_A_B[index*dyn_step];
+  float* B = &s_A_B[index*dyn_step+states_sq];
+  float* d = &s_d[index*nstates];
+  //fact matrices
+  float* F_lambda = &s_F_lambda[index*states_sq];
+  float* F_state = &s_F_state[index*states_sq];
+  float* F_input = &s_F_input[index*inp_states];
+  //
+  float* zy_temp = F_lambda+nstates*nstates;
   set_const<float>(nstates, 0.0, zy_temp); 
   
   if (index == 0) {
-    float* Q = &s_Q_R[0]; 
-    float* R = &s_Q_R[nstates*nstates]; 
+    float* Q = &s_Q_R[cost_step*index]; 
+    float* R = &s_Q_R[cost_step*index+states_sq]; 
     
     //Solve the block system of equations.
-    if(DEBUG){
-      printf("CHECK s_A_B: ");
-      printMatrix(s_A_B,nstates, nstates);
-    }
-    glass::copy<float>(nstates*nstates, -1.0, s_A_B, s_F_lambda, cgrps::this_thread_block());
-    glass::scal<float>(nstates*nstates, -1.0, s_F_lambda, cgrps::this_thread_block()); //-A'_0; 
-    if(DEBUG){
-      printf("CHECK s_F_Lambda: ");
-      printMatrix(s_F_lambda,nstates, nstates);
-    }
+
+    glass::copy<float>(nstates*nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
+
     // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
 
-    glass::copy<float>(nstates*ninputs,1.0, s_A_B+nstates*nstates, s_F_input); //copy  B_0
+    glass::copy<float>(nstates*ninputs,1.0, B, F_input); //copy  B_0
     chol_InPlace<float>(ninputs, R); 
-    cholSolve_InPlace<float>(R, s_F_input, false, ninputs, nstates); //Fu = R\B
-    cholSolve_InPlace<float>(R, s_q_r+nstates, false, ninputs, 1);  //zu = R\zu
+    cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); //Fu = R\B
+    cholSolve_InPlace<float>(R, r, false, ninputs, 1);  //zu = R\zu
 
     //Solve the block system of eqn (!overwriting d and q_r vectors!)
-    glass::copy<float>(nstates,1.0,s_d,zy_temp); 
-    glass::copy<float>(nstates,1.0,s_q_r, s_d);
-    glass::gemv<float>(nstates,nstates,-1.0, Q, zy_temp, -1.0, s_d);  // zy = - Q * zy - zx
-    glass::copy<float>(nstates,1.0,zy_temp,s_q_r);
+    glass::copy<float>(nstates,1.0,d,zy_temp); 
+    glass::copy<float>(nstates,1.0, q, d);
+    glass::gemv<float>(nstates,nstates,-1.0, Q, zy_temp, -1.0, d);  // zy = - Q * zy - zx
+    glass::copy<float>(nstates,1.0,zy_temp,q);
+    glass::scal<float>(nstates,-1.0, q,cgrps::this_thread_block());
 
     set_const<float>(nstates, 0.0, zy_temp); //initialize back to 0s
-     if(DEBUG){
-      printf("CHECK s_F_Lambda: ");
-      printMatrix(s_F_lambda,nstates, nstates);
-    }
 
   } else {
 
     int level = 0;
-    float* Q = &s_Q_R[0]; 
+    float* Q = &s_Q_R[index*cost_step]; 
     chol_InPlace<float>(nstates,Q);
 
     //Not the last timestep
     if(index<nhorizon -1) {
-      float* R = &s_Q_R[nstates*nstates];
+      float* R = &s_Q_R[index*cost_step+states_sq];
       chol_InPlace<float>(ninputs,R);
-      cholSolve_InPlace<float>(R, s_q_r+nstates,false, ninputs,1); //zu = R \ zu 
+      cholSolve_InPlace<float>(R, r,false, ninputs,1); //zu = R \ zu 
 
-      glass::copy<float>(nstates*nstates,s_A_B, s_F_state);
-      cholSolve_InPlace<float>(Q, s_F_state, false, nstates, nstates);
+      glass::copy<float>(nstates*nstates,A, F_state);
+      cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates);
 
-      glass::copy<float>(ninputs*nstates,1.0,s_A_B+nstates*nstates, s_F_input);
-      cholSolve_InPlace<float>(R, s_F_input, false, ninputs, nstates);  //DOUBLE CHECK!
+      glass::copy<float>(ninputs*nstates,1.0,B, F_input);
+      cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  //DOUBLE CHECK!
 
       //Initialize with -Identity matrix the next timestep
-      diag_Matrix_set<float>(nstates*nstates, -1.0 , s_F_state+(nstates*nstates));
+      diag_Matrix_set<float>(nstates*nstates, -1.0 , F_state+(nstates*nstates));
     }
     //Only the last timestep
-    cholSolve_InPlace<float>(Q, s_q_r, false, nstates, 1);        
-    cholSolve_InPlace<float>(Q, s_F_state, false, nstates, nstates); //solve Q \ -I from previous time step
+    cholSolve_InPlace<float>(Q, q, false, nstates, 1);        
+    cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates); //solve Q \ -I from previous time step
   }
+
 }
 
 template <typename T> 
@@ -398,10 +408,9 @@ template <typename T>
 
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
     int level = s_levels[ind];
-    solveLeaf<float>(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(cost_step),
-                    s_q_r+ind*(ninputs+nstates), s_A_B+ind*(dyn_step),
-                    s_d+ind*nstates, s_F_lambda+(level*nhorizon+ind)*states_sq, s_F_state+(level*nhorizon+ind)*states_sq,
-                    s_F_input+(level*nhorizon+ind)*inp_states);
+    solveLeaf<float>(ind, nstates, ninputs, nhorizon,
+                    s_Q_R, s_q_r, s_A_B,s_d, 
+                    s_F_lambda, s_F_state, s_F_input);
   }
 
   //for some reason doesn't work when I call here grid.sync()
@@ -422,7 +431,7 @@ template <typename T>
 
         }
 
-
+      if(!DEBUG) {
       for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
         if(ind%nhorizon==0){ 
           printf("\nLEVEL %d\n", ind/nhorizon);
@@ -437,6 +446,7 @@ template <typename T>
         printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
 
       }
+    }
     }
   }
   block.sync();
