@@ -1,0 +1,3 @@
+Run Test
+Allocated memory
+Launched Kernel
