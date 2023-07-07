@@ -50,7 +50,7 @@ template <typename T>
 
 template <typename T> 
   __device__
-  void solveLeaf(uint32_t level,
+  void solveLeaf(int *s_levels,
                  uint32_t index,
                  uint32_t nstates,
                  uint32_t ninputs,
@@ -74,6 +74,7 @@ template <typename T>
 
 
   //setting up arrays for specific indexes
+  int level = s_levels[index];
   float* q = &s_q_r[index*(ninputs+nstates)];
   float* r = &s_q_r[index*(ninputs+nstates)+nstates];
   float* A = &s_A_B[index*dyn_step];
@@ -132,34 +133,16 @@ template <typename T>
       //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
 
     }
-    //Only the last timestep
+    //Only term at the last timestep
     cholSolve_InPlace<float>(Q, q, false, nstates, 1); // Q\-q
-    float* F_state_prev = F_state - nhorizon*states_sq; //prev level same F_stae
+    int prev_level = s_levels[index-1];
+    float* F_state_prev = s_F_state+(index+nhorizon*prev_level)*states_sq; //prev level same F_stae
     diag_Matrix_set<float>(nstates, -1.0 , F_state_prev);
-    cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates); //solve Q \ -I from previous time step
+    cholSolve_InPlace<float>(Q, F_state_prev, false, nstates, nstates); //solve Q \ -I from previous time step
   }
 
   //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
   //set_const<float>(states_sq, 0.0, s_F_state);
-  
-
-  if(!DEBUG) {
-    for(uint32_t ind = 0; ind < nhorizon * 3 ;  ind++) {
-          printf("INSIDE SOLVELEAF %d", index);
-          if(ind%nhorizon==0){ 
-            printf("\nLEVEL %d\n", ind/nhorizon);
-          } 
-            printf("\nF_lambda[%d]\n", ind);
-            printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
-
-            printf("\nF_state%d: \n", ind);
-            printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
-
-            printf("\nF_input%d: \n", ind);
-            printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
-
-        }
-  }
 }
 
 template <typename T> 
@@ -453,8 +436,7 @@ template <typename T>
   //should solveLeaf in parallel
 
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
-    int level = s_levels[ind];
-    solveLeaf<float>(level, ind, nstates, ninputs, nhorizon,
+    solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                     s_Q_R, s_q_r, s_A_B,s_d, 
                     s_F_lambda, s_F_state, s_F_input);
   }
