@@ -50,7 +50,7 @@ template <typename T>
 
 template <typename T> 
   __device__
-  void solveLeaf(uint32_t level,
+  void solveLeaf(int *s_levels,
                  uint32_t index,
                  uint32_t nstates,
                  uint32_t ninputs,
@@ -74,6 +74,7 @@ template <typename T>
 
 
   //setting up arrays for specific indexes
+  int level = s_levels[index];
   float* q = &s_q_r[index*(ninputs+nstates)];
   float* r = &s_q_r[index*(ninputs+nstates)+nstates];
   float* A = &s_A_B[index*dyn_step];
@@ -83,9 +84,6 @@ template <typename T>
   float* F_lambda = &s_F_lambda[(index + nhorizon * level)*states_sq];
   float* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
   float* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
-  //
-  
-
   float* zy_temp;
   
   if (index == 0) {
@@ -126,39 +124,15 @@ template <typename T>
       cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates);
 
       glass::copy<float>(ninputs*nstates,1.0, B, F_input);
-      cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  //DOUBLE CHECK!
-
-      //Initialize with -Identity matrix the next timestep
-      //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
-
+      cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  
     }
-    //Only the last timestep
+
+    //Only term at the last timestep
     cholSolve_InPlace<float>(Q, q, false, nstates, 1); // Q\-q
-    float* F_state_prev = F_state - nhorizon*states_sq; //prev level same F_stae
+    int prev_level = s_levels[index-1];
+    float* F_state_prev = s_F_state+(index+nhorizon*prev_level)*states_sq; //prev level  F_state
     diag_Matrix_set<float>(nstates, -1.0 , F_state_prev);
-    cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates); //solve Q \ -I from previous time step
-  }
-
-  //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
-  //set_const<float>(states_sq, 0.0, s_F_state);
-  
-
-  if(!DEBUG) {
-    for(uint32_t ind = 0; ind < nhorizon * 3 ;  ind++) {
-          printf("INSIDE SOLVELEAF %d", index);
-          if(ind%nhorizon==0){ 
-            printf("\nLEVEL %d\n", ind/nhorizon);
-          } 
-            printf("\nF_lambda[%d]\n", ind);
-            printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
-
-            printf("\nF_state%d: \n", ind);
-            printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
-
-            printf("\nF_input%d: \n", ind);
-            printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
-
-        }
+    cholSolve_InPlace<float>(Q, F_state_prev, false, nstates, nstates); //solve Q \ -I from previous time step
   }
 }
 
@@ -447,14 +421,12 @@ template <typename T>
 
         }
     }    
-
   }
 
   //should solveLeaf in parallel
 
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
-    int level = s_levels[ind];
-    solveLeaf<float>(level, ind, nstates, ninputs, nhorizon,
+    solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                     s_Q_R, s_q_r, s_A_B,s_d, 
                     s_F_lambda, s_F_state, s_F_input);
   }
@@ -465,7 +437,7 @@ template <typename T>
   if(DEBUG) {
 
     if(block_id == 0 && thread_id == 0) {
-      printf("CHECKING DATA AFTER SOLVE_LEAF");/*
+      printf("CHECKING DATA AFTER SOLVE_LEAF");
         for(unsigned i = 0; i < nhorizon; i++) { 
           printf("\nd%d: \n", i);
           printMatrix(s_d+i*nstates,1,nstates);      
@@ -476,9 +448,8 @@ template <typename T>
           printf("\nr%d: \n", i);
           printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
 
-        }*/
+        }
     }
-
       for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
         if(ind%nhorizon==0){ 
           printf("\nLEVEL %d\n", ind/nhorizon);
