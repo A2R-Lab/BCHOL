@@ -19,13 +19,12 @@ void scaled_sum(std::uint32_t m,
                 cgrps::thread_group g = cgrps::this_thread_block()
                ){
     const unsigned max = m*n;
-    uint32_t element, ind, row, col;
+    uint32_t element, row, col;
     T res;
     for(element = g.thread_rank(); element < max; element += g.size()){
         res = static_cast<T>(0);
         row = element % m;
         col = element / m;
-        
         B[col*m + row] += A[col*m + row] * B[col*m + row];
     }
 }

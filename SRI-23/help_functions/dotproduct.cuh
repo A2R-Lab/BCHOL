@@ -1,3 +1,9 @@
+/*
+    Computes dot product of A and B, and sum result to C
+    Given A, B, C
+    Updates C to alpha A'T B + beta*C 
+*/
+
 #include <cstdint>
 #include <cooperative_groups.h>
 namespace cgrps = cooperative_groups;
