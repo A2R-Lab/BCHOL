@@ -6,10 +6,12 @@
 #include "../../GLASS/glass.cuh"
 //should we put into one header file?
 
-#include "chol_InPlace.cuh"
-#include "chol_SolveInPlace.cuh"
+#include "./help_functions/chol_InPlace.cuh"
+#include "./help_functions/chol_SolveInPlace.cuh"
 #include "./help_functions/diag_Matrix_set.cuh"
 #include "./help_functions/set_const.cuh"
+#include "./help_functions/dotproduct.cuh"
+#include "./help_functions/scaled_sum.cuh"
 __device__ const bool DEBUG = true;
 
 namespace cgrps = cooperative_groups;
@@ -48,7 +50,8 @@ template <typename T>
 
 template <typename T> 
   __device__
-  void solveLeaf(uint32_t index,
+  void solveLeaf(uint32_t level,
+                 uint32_t index,
                  uint32_t nstates,
                  uint32_t ninputs,
                  uint32_t nhorizon,
@@ -59,115 +62,166 @@ template <typename T>
                  T *s_F_lambda,
                  T *s_F_state,
                  T *s_F_input
-                 //T *s_c??
                 ) {
 
+  
+  //const for KKT matrix
+  const uint32_t states_sq = nstates*nstates;
+  const uint32_t inputs_sq = ninputs*ninputs;
+  const uint32_t inp_states = ninputs*nstates;
+  const uint32_t cost_step = states_sq+inputs_sq;
+  const uint32_t dyn_step = states_sq+inp_states;
 
-  float* zy_temp = s_F_lambda+nstates*nstates;
-  set_const<float>(nstates, 0.0, zy_temp); 
+
+  //setting up arrays for specific indexes
+  float* q = &s_q_r[index*(ninputs+nstates)];
+  float* r = &s_q_r[index*(ninputs+nstates)+nstates];
+  float* A = &s_A_B[index*dyn_step];
+  float* B = &s_A_B[index*dyn_step+states_sq];
+  float* d = &s_d[index*nstates];
+  //fact matrices
+  float* F_lambda = &s_F_lambda[(index + nhorizon * level)*states_sq];
+  float* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
+  float* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
+  //
+  
+
+  float* zy_temp;
   
   if (index == 0) {
-    float* Q = &s_Q_R[0]; 
-    float* R = &s_Q_R[nstates*nstates]; 
+    float* Q = &s_Q_R[cost_step*index]; 
+    float* R = &s_Q_R[cost_step*index+states_sq]; 
     
     //Solve the block system of equations.
-    if(DEBUG){
-      printf("CHECK s_A_B: ");
-      printMatrix(s_A_B,nstates, nstates);
-    }
-    glass::copy<float>(nstates*nstates, -1.0, s_A_B, s_F_lambda, cgrps::this_thread_block());
-    glass::scal<float>(nstates*nstates, -1.0, s_F_lambda, cgrps::this_thread_block()); //-A'_0; 
-    if(DEBUG){
-      printf("CHECK s_F_Lambda: ");
-      printMatrix(s_F_lambda,nstates, nstates);
-    }
-    // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
 
-    glass::copy<float>(nstates*ninputs,1.0, s_A_B+nstates*nstates, s_F_input); //copy  B_0
-    chol_InPlace<float>(ninputs, R); 
-    cholSolve_InPlace<float>(R, s_F_input, false, ninputs, nstates); //Fu = R\B
-    cholSolve_InPlace<float>(R, s_q_r+nstates, false, ninputs, 1);  //zu = R\zu
+    glass::copy<float>(nstates*nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
+
+    // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
+    set_const<float>(nstates*nstates,0.0, s_F_state);
+    glass::copy<float>(nstates*ninputs,1.0, B, F_input); //copy  B_0
+    chol_InPlace<float>(ninputs,R); //maybe unnessasry
+    cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); //Fu = R\B
+    cholSolve_InPlace<float>(R, r, false, ninputs, 1);  //zu = R\zu
 
     //Solve the block system of eqn (!overwriting d and q_r vectors!)
-    glass::copy<float>(nstates,1.0,s_d,zy_temp); 
-    glass::copy<float>(nstates,1.0,s_q_r, s_d);
-    glass::gemv<float>(nstates,nstates,-1.0, Q, zy_temp, -1.0, s_d);  // zy = - Q * zy - zx
-    glass::copy<float>(nstates,1.0,zy_temp,s_q_r);
-
+    zy_temp = &s_F_state[nhorizon*states_sq];
+    glass::copy<float>(nstates,1.0,d,zy_temp); 
+    glass::copy<float>(nstates,1.0, q, d);
+    glass::gemv<float>(nstates,nstates,-1.0, Q, zy_temp, -1.0, d);  // zy = - Q * zy - zx
+    glass::copy<float>(nstates,-1.0,zy_temp,q);
     set_const<float>(nstates, 0.0, zy_temp); //initialize back to 0s
-     if(DEBUG){
-      printf("CHECK s_F_Lambda: ");
-      printMatrix(s_F_lambda,nstates, nstates);
-    }
 
   } else {
 
-    int level = 0;
-    float* Q = &s_Q_R[0]; 
+    float* Q = &s_Q_R[index*cost_step]; 
     chol_InPlace<float>(nstates,Q);
 
     //Not the last timestep
     if(index<nhorizon -1) {
-      float* R = &s_Q_R[nstates*nstates];
+      float* R = &s_Q_R[index*cost_step+states_sq];
       chol_InPlace<float>(ninputs,R);
-      cholSolve_InPlace<float>(R, s_q_r+nstates,false, ninputs,1); //zu = R \ zu 
+      cholSolve_InPlace<float>(R, r,false, ninputs,1); //zu = R \ zu 
 
-      glass::copy<float>(nstates*nstates,s_A_B, s_F_state);
-      cholSolve_InPlace<float>(Q, s_F_state, false, nstates, nstates);
+      glass::copy<float>(nstates*nstates,A, F_state);
+      cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates);
 
-      glass::copy<float>(ninputs*nstates,1.0,s_A_B+nstates*nstates, s_F_input);
-      cholSolve_InPlace<float>(R, s_F_input, false, ninputs, nstates);  //DOUBLE CHECK!
+      glass::copy<float>(ninputs*nstates,1.0, B, F_input);
+      cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  //DOUBLE CHECK!
 
       //Initialize with -Identity matrix the next timestep
-      diag_Matrix_set<float>(nstates*nstates, -1.0 , s_F_state+(nstates*nstates));
+      //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
+
     }
     //Only the last timestep
-    cholSolve_InPlace<float>(Q, s_q_r, false, nstates, 1);        
-    cholSolve_InPlace<float>(Q, s_F_state, false, nstates, nstates); //solve Q \ -I from previous time step
+    cholSolve_InPlace<float>(Q, q, false, nstates, 1); // Q\-q
+    float* F_state_prev = F_state - nhorizon*states_sq; //prev level same F_stae
+    diag_Matrix_set<float>(nstates, -1.0 , F_state_prev);
+    cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates); //solve Q \ -I from previous time step
+  }
+
+  //diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
+  //set_const<float>(states_sq, 0.0, s_F_state);
+  
+
+  if(!DEBUG) {
+    for(uint32_t ind = 0; ind < nhorizon * 3 ;  ind++) {
+          printf("INSIDE SOLVELEAF %d", index);
+          if(ind%nhorizon==0){ 
+            printf("\nLEVEL %d\n", ind/nhorizon);
+          } 
+            printf("\nF_lambda[%d]\n", ind);
+            printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+            printf("\nF_state%d: \n", ind);
+            printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+            printf("\nF_input%d: \n", ind);
+            printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
+
+        }
   }
 }
 
 template <typename T> 
 __device__
-void factorInnerProduct(T* s_A_B, T* fact_state, T* fact_input, T* fact_lambda, int index, int data_level, int fact_level, uint32_t nstates, uint32_t ninputs, uint32_t nhorizon) {
+void factorInnerProduct(T* s_A_B, 
+                        T* fact_state, 
+                        T* fact_input, 
+                        T* fact_lambda, 
+                        int index, 
+                        int fact_level, 
+                        uint32_t nstates, 
+                        uint32_t ninputs, 
+                        uint32_t nhorizon) {
   float* C1_state;
   float* C1_input;
-
   float* F1_state;
   float* F1_input;
-  float* F1_lambda;
-
-  float* C2_state;
-  float* C2_input;
-
   float* F2_state;
-  float* F2_input;
-  float* F2_lambda;
+
+  // minus identity matrix is stored in fact_lambda[nhorizon] - because it is not utilized
 
   int dyn_step = nstates*nstates+nstates*ninputs;
 
-  //no need for tree conversion int linear_index = index + nhorizon * data_level;
   C1_state = s_A_B + (index*dyn_step); 
   C1_input = s_A_B + (index*dyn_step + nstates*nstates);
 
   uint32_t linear_index = index + nhorizon * fact_level;
   F1_state = fact_state + linear_index*(nstates*nstates);
   F1_input = fact_input + linear_index*(nstates*nstates);
-  F1_lambda = fact_lambda + linear_index*(nstates*ninputs);
-
-  C2_state = s_A_B + (index * dyn_step);
-  C2_input = s_A_B + (index * dyn_step + nstates * nstates);
 
   linear_index = (index + 1) + nhorizon * fact_level;
   F2_state = fact_state + linear_index*(nstates*nstates);
-  F2_input = fact_input + linear_index*(nstates*nstates);
-  F2_lambda = fact_input + linear_index*(nstates*ninputs);
-  
-  float *S = F2_lambda;
-  glass::gemm<float,0>(nstates, nstates, ninputs, 1.0, C1_state, F1_state, -1.0, S,cgrps::this_thread_block()); //S = C1x'F1x
-  glass::gemm<float,0>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0,S,cgrps::this_thread_block());
-  glass::gemm<float,0>(nstates, nstates, nstates, 1.0, C2_state, F2_state, 1.0,S,cgrps::this_thread_block());
-  glass::gemm<float,0>(nstates, ninputs, nstates, 1.0, C2_input, F2_input, 1.0,S,cgrps::this_thread_block());
+
+  float *S = fact_lambda + linear_index*(nstates*ninputs); //F2_lambda
+
+  dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
+  dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+  scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state 
+ 
+  // DEBUG: print out C1_state, F1_state, C1_input, F1_input, C2_state, F2_state
+  if(!DEBUG){
+    printf("factor inner product, upper level: %d; lin_ind: %d\n", fact_level, index);
+    printf("PRINTING RELEVANT MATRICES\n");
+
+    printf("\nC1_state: \n");
+    printMatrix(C1_state,nstates,nstates);
+
+    printf("\nF1_state: \n");
+    printMatrix(F1_state,nstates,nstates);
+
+    printf("\nC1_input: \n");
+    printMatrix(C1_input,nstates,ninputs);
+
+    printf("\nF1_input: \n");
+    printMatrix(F1_input,nstates,ninputs);
+
+    printf("\nF2_state: \n");
+    printMatrix(F2_state,nstates,nstates);
+
+    printf("\nS: \n");
+    printMatrix(S,nstates,nstates);
+  }
 }
 
 template <typename T> 
@@ -309,7 +363,9 @@ template <typename T>
   T *s_F_lambda = s_d + nstates*nhorizon;
   T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
   T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
-  int *s_levels = (int *)(s_F_input + depth*inp_states*nhorizon);
+  T *s_nI = s_F_input + depth*inp_states*nhorizon;
+  int *s_levels = (int *)(s_nI + states_sq);
+  //add -I matrix
 
   //move ram to shared
   for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon ; i += block_dim){
@@ -376,7 +432,7 @@ template <typename T>
         printMatrix(s_d+i*nstates,1,nstates);        
       } 
 
-      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {/*
+      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
           if(ind%nhorizon==0){ 
             printf("\nLEVEL %d\n", ind/nhorizon);
           } 
@@ -389,7 +445,7 @@ template <typename T>
             printf("\nF_input%d: \n", ind);
             printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
 
-        */}
+        }
     }    
 
   }
@@ -398,18 +454,18 @@ template <typename T>
 
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
     int level = s_levels[ind];
-    solveLeaf<float>(ind, nstates, ninputs, nhorizon, s_Q_R+ind*(cost_step),
-                    s_q_r+ind*(ninputs+nstates), s_A_B+ind*(dyn_step),
-                    s_d+ind*nstates, s_F_lambda+(level*nhorizon+ind)*states_sq, s_F_state+(level*nhorizon+ind)*states_sq,
-                    s_F_input+(level*nhorizon+ind)*inp_states);
+    solveLeaf<float>(level, ind, nstates, ninputs, nhorizon,
+                    s_Q_R, s_q_r, s_A_B,s_d, 
+                    s_F_lambda, s_F_state, s_F_input);
   }
 
   //for some reason doesn't work when I call here grid.sync()
   block.sync();
 
   if(DEBUG) {
+
     if(block_id == 0 && thread_id == 0) {
-      printf("CHECKING DATA AFTER SOLVE_LEAF");
+      printf("CHECKING DATA AFTER SOLVE_LEAF");/*
         for(unsigned i = 0; i < nhorizon; i++) { 
           printf("\nd%d: \n", i);
           printMatrix(s_d+i*nstates,1,nstates);      
@@ -420,8 +476,8 @@ template <typename T>
           printf("\nr%d: \n", i);
           printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
 
-        }
-
+        }*/
+    }
 
       for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
         if(ind%nhorizon==0){ 
@@ -437,7 +493,6 @@ template <typename T>
         printMatrix(s_F_input+ind*inp_states, nstates,ninputs);
 
       }
-    }
   }
   block.sync();
 
@@ -454,67 +509,29 @@ template <typename T>
       uint32_t leaf = ind / cur_depth;
       uint32_t upper_level = level + (ind % cur_depth);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, nstates, ninputs, nhorizon);
-      if(!DEBUG){
-        if(thread_id==0 && block_id==0) {
-          printf("factor inner product, leaf: %d; upper level: %d; lin_ind: %d\n", leaf, upper_level, lin_ind);
-          // for(unsigned i = 0; i < nhorizon; i++) {
-          //   printf("\nQ%d: \n", i);
-          //   printMatrix(s_Q_R+(i*cost_step),nstates,nstates);
-
-          //   printf("\nR%d: \n", i);
-          //   printMatrix(s_Q_R+(i*cost_step+states_sq),ninputs,ninputs);
-
-          //   printf("\nq%d: \n", i);
-          //   printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-
-          //   printf("\nr%d: \n", i);
-          //   printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
-
-          //   printf("\nA%d: \n", i);
-          //   printMatrix(s_A_B+(i*dyn_step),nstates,nstates);
-
-          //   printf("\nB%d: \n", i);
-          //   printMatrix(s_A_B+(i*dyn_step+states_sq),nstates,ninputs);
-
-          //   printf("\nd%d: \n", i);
-          //   printMatrix(s_d+i*nstates,1,nstates);        
-          // } 
-
-          for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
-            if(ind%nhorizon==0){ 
-              printf("\nLEVEL %d\n", ind/nhorizon);
-            } 
-            printf("\nF_lambda[%d]\n", ind);
-            printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
-
-            printf("\nF_state%d: \n", ind);
-            printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
-
-            printf("\nF_input%d: \n", ind);
-            printMatrix(s_F_input+ind*inp_states,nstates,ninputs);
-          }
-        }    
-      }
+      factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
     }
     //in original code syncs here before proceeding
     grid.sync();
 
-    //Cholesky factorization- XIAN
+    break; // DEBUG: break here placed for debugging, remove afterwards
+
+    //Cholesky factorization
     for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       float* S = s_F_lambda+lin_ind+1;
       chol_InPlace<float>(nstates, S);
     }
+
     //Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth-1;   
     uint32_t num_solves = numleaves*upper_levels;
-    //check if in block or grid
-    for (uint32_t i =thread_id; i < num_solves; i+=block_dim) {
+    for (uint32_t i = block_id; i < num_solves; i+=grid_dim) {
       uint32_t leaf = i / upper_levels;
       uint32_t upper_level = level + 1 + (i % upper_levels);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, nstates, ninputs, nhorizon);
+      SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, 
+                                 nstates, ninputs, nhorizon);
     }
 
     printf("bye\n");
@@ -542,7 +559,9 @@ template <typename T>
     for(uint32_t leaf = thread_id; leaf < numleaves; leaf+=block_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       // Calculate z = d - F'b1 - F2'b2
-      factorInnerProduct(s_A_B, s_d, s_q_r, s_q_r+nstates, lin_ind, level, 0, nstates, ninputs, nhorizon);
+
+      // TODO: write another function to cater to dimensions of data->soln
+      factorInnerProduct(s_A_B, s_d, s_q_r, s_q_r+nstates, lin_ind, 0, nstates, ninputs, nhorizon);
     }
     block.sync();
     //Solve for separator variables with cached Cholesky decomposition
