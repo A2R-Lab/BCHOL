@@ -6,8 +6,8 @@
 #include "../../GLASS/glass.cuh"
 //should we put into one header file?
 
-#include "chol_InPlace.cuh"
-#include "chol_SolveInPlace.cuh"
+#include "./help_functions/chol_InPlace.cuh"
+#include "./help_functions/chol_SolveInPlace.cuh"
 #include "./help_functions/diag_Matrix_set.cuh"
 #include "./help_functions/set_const.cuh"
 __device__ const bool DEBUG = true;
@@ -60,7 +60,6 @@ template <typename T>
                  T *s_F_lambda,
                  T *s_F_state,
                  T *s_F_input
-                 //T *s_c??
                 ) {
 
   
@@ -83,6 +82,8 @@ template <typename T>
   float* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
   float* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
   //
+  
+
   float* zy_temp = &s_F_state[nhorizon*states_sq];
   set_const<float>(nstates, 0.0, zy_temp); 
   
@@ -97,7 +98,6 @@ template <typename T>
     // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
 
     glass::copy<float>(nstates*ninputs,1.0, B, F_input); //copy  B_0
-    chol_InPlace<float>(ninputs, R); 
     cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); //Fu = R\B
     cholSolve_InPlace<float>(R, r, false, ninputs, 1);  //zu = R\zu
 
@@ -114,7 +114,6 @@ template <typename T>
 
     float* Q = &s_Q_R[index*cost_step]; 
     chol_InPlace<float>(nstates,Q);
-
     //Not the last timestep
     if(index<nhorizon -1) {
       float* R = &s_Q_R[index*cost_step+states_sq];
@@ -136,7 +135,11 @@ template <typename T>
     cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates); //solve Q \ -I from previous time step
   }
   //Initialize with -Identity matrix the next timestep
+
   diag_Matrix_set<float>(nstates, -1.0 , F_state+states_sq);
+  //set_const<float>(states_sq, 0.0, s_F_state);
+  
+
   if(DEBUG) {
     for(uint32_t ind = 0; ind < nhorizon * 3 ;  ind++) {
           printf("INSIDE SOLVELEAF %d", index);
@@ -158,7 +161,17 @@ template <typename T>
 
 template <typename T> 
 __device__
-void factorInnerProduct(T* s_A_B, T* fact_state, T* fact_input, T* fact_lambda, int index, int data_level, int fact_level, uint32_t nstates, uint32_t ninputs, uint32_t nhorizon) {
+void factorInnerProduct(T* s_A_B, 
+                        T* fact_state, 
+                        T* fact_input, 
+                        T* fact_lambda, 
+                        int index, 
+                        int data_level, 
+                        int fact_level, 
+                        uint32_t nstates, 
+                        uint32_t ninputs, 
+                        uint32_t nhorizon
+                       ) {
   float* C1_state;
   float* C1_input;
 
@@ -338,7 +351,8 @@ template <typename T>
   T *s_F_lambda = s_d + nstates*nhorizon;
   T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
   T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
-  int *s_levels = (int *)(s_F_input + depth*inp_states*nhorizon);
+  T *s_nI = s_F_input + depth*inp_states*nhorizon;
+  int *s_levels = (int *)(s_nI + states_sq);
 
   //move ram to shared
   for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon ; i += block_dim){
