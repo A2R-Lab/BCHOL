@@ -3,7 +3,7 @@
 namespace cgrps = cooperative_groups;
 #include <cmath>
 #include "lowerBackSub.cuh"
-//didn;t implement transposed yet
+
 //Solves linear system of equations with Cholesky
 template <typename T>
 __device__
