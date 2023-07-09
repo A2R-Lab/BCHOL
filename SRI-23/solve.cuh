@@ -10,13 +10,13 @@
 #include "./help_functions/chol_SolveInPlace.cuh"
 #include "./help_functions/diag_Matrix_set.cuh"
 #include "./help_functions/set_const.cuh"
-#include "./help_functions/dotproduct.cuh"
+#include "./help_functions/dot_product.cuh"
 #include "./help_functions/scaled_sum.cuh"
 __device__ const bool DEBUG = true;
 
 namespace cgrps = cooperative_groups;
 
-/* @brief Solve all the equations for the lower-level diagonal blocks , by timestep.
+/* @brief Solve all the equations for the lower-level diagonal blocks, by timestep.
  * * For and LQR problem, it calculates
  *
  * \f[
@@ -39,10 +39,10 @@ namespace cgrps = cooperative_groups;
  */
 template <typename T>
   __device__
-  void printMatrix(T* matrix, uint32_t cols, uint32_t rows) {
+  void printMatrix(T* matrix, uint32_t rows, uint32_t cols) {
   for (unsigned i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
-      printf("%.3f  ",matrix[i*cols+j]);
+      printf("%f  ", matrix[j*rows+i]); 
     }
     printf("\n");
   }
@@ -64,7 +64,6 @@ template <typename T>
                  T *s_F_input
                 ) {
 
-  
   //const for KKT matrix
   const uint32_t states_sq = nstates*nstates;
   const uint32_t inputs_sq = ninputs*ninputs;
@@ -91,10 +90,9 @@ template <typename T>
     float* R = &s_Q_R[cost_step*index+states_sq]; 
     
     //Solve the block system of equations.
-
     glass::copy<float>(nstates*nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
 
-    // dont need ti coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
+    // dont need to coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
     set_const<float>(nstates*nstates,0.0, s_F_state);
     glass::copy<float>(nstates*ninputs,1.0, B, F_input); //copy  B_0
     chol_InPlace<float>(ninputs,R); //maybe unnessasry
@@ -112,12 +110,12 @@ template <typename T>
   } else {
 
     float* Q = &s_Q_R[index*cost_step]; 
-    chol_InPlace<float>(nstates,Q);
+    chol_InPlace<float>(nstates,Q, cgrps::this_thread_block());
 
     //Not the last timestep
     if(index<nhorizon -1) {
       float* R = &s_Q_R[index*cost_step+states_sq];
-      chol_InPlace<float>(ninputs,R);
+      chol_InPlace<float>(ninputs,R, cgrps::this_thread_block());
       cholSolve_InPlace<float>(R, r,false, ninputs,1); //zu = R \ zu 
 
       glass::copy<float>(nstates*nstates,A, F_state);
@@ -147,60 +145,28 @@ void factorInnerProduct(T* s_A_B,
                         uint32_t nstates, 
                         uint32_t ninputs, 
                         uint32_t nhorizon) {
-  float* C1_state;
-  float* C1_input;
-  float* F1_state;
-  float* F1_input;
-  float* F2_state;
-
-  // minus identity matrix is stored in fact_lambda[nhorizon] - because it is not utilized
 
   int dyn_step = nstates*nstates+nstates*ninputs;
 
-  C1_state = s_A_B + (index*dyn_step); 
-  C1_input = s_A_B + (index*dyn_step + nstates*nstates);
+  float* C1_state = s_A_B + (index*dyn_step); 
+  float* C1_input = s_A_B + (index*dyn_step + nstates*nstates);
 
   uint32_t linear_index = index + nhorizon * fact_level;
-  F1_state = fact_state + linear_index*(nstates*nstates);
-  F1_input = fact_input + linear_index*(nstates*nstates);
+  float* F1_state = fact_state + linear_index*(nstates*nstates);
+  float* F1_input = fact_input + linear_index*(ninputs*nstates);
 
   linear_index = (index + 1) + nhorizon * fact_level;
-  F2_state = fact_state + linear_index*(nstates*nstates);
-
-  float *S = fact_lambda + linear_index*(nstates*ninputs); //F2_lambda
+  float* F2_state = fact_state + linear_index*(nstates*nstates);
+  float *S = fact_lambda + linear_index*(nstates*nstates); //F2_lambda
 
   dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
   dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
   scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state 
- 
-  // DEBUG: print out C1_state, F1_state, C1_input, F1_input, C2_state, F2_state
-  if(!DEBUG){
-    printf("factor inner product, upper level: %d; lin_ind: %d\n", fact_level, index);
-    printf("PRINTING RELEVANT MATRICES\n");
-
-    printf("\nC1_state: \n");
-    printMatrix(C1_state,nstates,nstates);
-
-    printf("\nF1_state: \n");
-    printMatrix(F1_state,nstates,nstates);
-
-    printf("\nC1_input: \n");
-    printMatrix(C1_input,nstates,ninputs);
-
-    printf("\nF1_input: \n");
-    printMatrix(F1_input,nstates,ninputs);
-
-    printf("\nF2_state: \n");
-    printMatrix(F2_state,nstates,nstates);
-
-    printf("\nS: \n");
-    printMatrix(S,nstates,nstates);
-  }
 }
 
 template <typename T> 
-  __device__
-  void SolveCholeskyFactor(T* fact_state, T* fact_input, T* fact_lambda, int index, int level, int upper_level, int nstates, int ninput, int nhorizon) {
+__device__
+void SolveCholeskyFactor(T* fact_state, T* fact_input, T* fact_lambda, int index, int level, int upper_level, int nstates, int ninput, int nhorizon) {
   float *Sbar = fact_lambda + (index + 1) + nhorizon * level;
   float *f = fact_lambda + (index + 1) + nhorizon * upper_level;
 
@@ -208,7 +174,7 @@ template <typename T>
 }
 
 __device__
-  int getIndexFromLevel(int nhorizon, int depth, int level, int i, int* levels){
+int getIndexFromLevel(int nhorizon, int depth, int level, int i, int* levels){
   int num_nodes = pow(2, depth - level - 1);
   int leaf = i * num_nodes / nhorizon;
   int count = 0;
@@ -223,7 +189,7 @@ __device__
 }
 
 __device__
-  bool shouldCalcLambda(int index, int i, int nhorizon, int* levels){
+bool shouldCalcLambda(int index, int i, int nhorizon, int* levels){
   int left_start = index - int(pow(2,levels[index])) + 1;
   int right_start = index + 1;
   bool is_start = i == left_start || i == right_start;
@@ -231,8 +197,8 @@ __device__
 }
 
 template <typename T> 
-  __device__
-  void updateShur(T* fact_state, T* fact_input, T* fact_lambda, T* q_r, T* d, int index, int i, int level, int upper_level, bool calc_lambda, int nstates, int ninputs, int nhorizon) {
+__device__
+void updateShur(T* fact_state, T* fact_input, T* fact_lambda, T* q_r, T* d, int index, int i, int level, int upper_level, bool calc_lambda, int nstates, int ninputs, int nhorizon) {
   float* f_factor_state;
   float* f_factor_input;
   float* f_factor_lambda;
@@ -271,7 +237,7 @@ template <typename T>
 
 
 __device__
-  void initializeBSTLevels(int nhorizon, int* levels) {
+void initializeBSTLevels(int nhorizon, int* levels) {
   int depth = log2f (nhorizon);
 
   for (int i = 0; i < nhorizon/2; i++){
@@ -339,24 +305,26 @@ template <typename T>
   T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
   T *s_nI = s_F_input + depth*inp_states*nhorizon;
   int *s_levels = (int *)(s_nI + states_sq);
-  //add -I matrix
+
 
   //move ram to shared
-  for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon ; i += block_dim){
+  for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon; i += block_dim){
     s_Q_R[i] = d_Q_R[i];
   }
 
-  for (unsigned i = thread_id; i < (nstates+ninputs)*nhorizon; i +=block_dim) {
+  for(unsigned i = thread_id; i < (nstates+ninputs)*nhorizon; i +=block_dim) {
     s_q_r[i] = d_q_r[i];
   }
 
-  for (unsigned i = thread_id; i < (states_sq+inp_states)*nhorizon; i +=block_dim) {
+  for(unsigned i = thread_id; i < (states_sq+inp_states)*nhorizon; i +=block_dim) {
     s_A_B[i] = d_A_B[i]; 
   }
   
   for(unsigned i = thread_id; i < nhorizon*nstates; i += block_dim) {
     s_d[i] = d_d[i];
   }
+
+  diag_Matrix_set<float>(nstates, -1.0 , s_nI);
 
   // initialize
   block.sync();
@@ -368,9 +336,7 @@ template <typename T>
   //negate q_r,d vectors (using threads)
   for (uint32_t ind = thread_id; ind < (ninputs+nstates)*nhorizon; ind+=block_dim){
     s_q_r[ind] *= -1;
-  }
-  //sync threads
-  block.sync();
+  }  
   
   for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
     s_d[ind] *= -1;
@@ -385,10 +351,44 @@ template <typename T>
                     s_F_lambda, s_F_state, s_F_input);
   }
 
-  //for some reason doesn't work when I call here grid.sync()
+  //for some reason doesn't work when I call here 
+  //grid.sync();
+  block.sync();
+  printf("done with solveLeaf\n");
+
+  if(!DEBUG) {
+    // if(block_id == 0 && thread_id == 0) {
+    //   printf("CHECKING DATA AFTER SOLVE_LEAF");
+    //     for(unsigned i = 0; i < nhorizon; i++) { 
+    //       printf("\nd%d: \n", i);
+    //       printMatrix(s_d+i*nstates,1,nstates);      
+
+    //       printf("\nq%d: \n", i);
+    //       printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+    //       printf("\nr%d: \n", i);
+    //       printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+    //     }
+    // }
+    for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+      if(ind%nhorizon==0){ 
+        printf("\nLEVEL %d\n", ind/nhorizon);
+      }
+      printf("\nF_lambda #%d: \n", ind);
+      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_state #%d: \n", ind);
+      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_input #%d: \n", ind);
+      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+    }
+  }
   block.sync();
 
-  //Solve factorization -can do in parallel?
+  //Solve factorization - can do in parallel
   for(uint32_t level = 0; level < depth; ++level ) {
     uint32_t numleaves = pow(2.0, (depth-level-1) );
 
@@ -403,16 +403,50 @@ template <typename T>
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
     }
-    //in original code syncs here before proceeding
-    grid.sync();
 
-    break; // DEBUG: break here placed for debugging, remove afterwards
+    //in original code syncs here before proceeding
+    //change to grid.sync()?
+    block.sync();
+    printf("done with innerproducts");
+
+    if(DEBUG) {
+      // if(block_id == 0 && thread_id == 0) {
+      //   printf("CHECKING DATA AFTER SOLVE_LEAF");
+      //     for(unsigned i = 0; i < nhorizon; i++) { 
+      //       printf("\nd%d: \n", i);
+      //       printMatrix(s_d+i*nstates,1,nstates);      
+
+      //       printf("\nq%d: \n", i);
+      //       printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+      //       printf("\nr%d: \n", i);
+      //       printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+      //     }
+      // }
+      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+        if(ind%nhorizon==0){ 
+          printf("\nLEVEL %d\n", ind/nhorizon);
+        }
+        printf("\nF_lambda #%d: \n", ind);
+        printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+        printf("\nF_state #%d: \n", ind);
+        printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+        printf("\nF_input #%d: \n", ind);
+        printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+      }
+    }
+
+    break;
 
     //Cholesky factorization
     for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       float* S = s_F_lambda+lin_ind+1;
-      chol_InPlace<float>(nstates, S);
+      chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
     }
 
     //Solve with Cholesky factor for f
@@ -426,7 +460,7 @@ template <typename T>
                                  nstates, ninputs, nhorizon);
     }
 
-    printf("bye\n");
+    printf("done with F!\n");
 
     //Shur compliments
     uint32_t num_factors = nhorizon * upper_levels;
@@ -444,6 +478,9 @@ template <typename T>
   }
   //solve for solution vector using the cached factorization
   for (uint32_t level = 0; level < depth; ++level) {
+    if(DEBUG){
+      break;
+    }
     uint32_t numleaves = pow(2.0, (depth-level-1) );
 
     //calculate inner products with rhs, with factors computed above
@@ -480,4 +517,6 @@ template <typename T>
     }
     block.sync();
   }
+  printf("done!\n");
+
 }

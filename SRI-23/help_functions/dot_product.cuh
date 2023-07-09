@@ -20,7 +20,7 @@ void dot_product(std::uint32_t m,
           T *C,
           cgrps::thread_group g)
 {
-    const unsigned max = m*n;
+    const unsigned max = m*k;
     uint32_t element, ind, row, col;
     T res;
     for(element = g.thread_rank(); element < max; element += g.size()){
@@ -31,7 +31,6 @@ void dot_product(std::uint32_t m,
         for(ind = 0; ind < n; ind++){
             res += A[row*n + ind] * B[col*n + ind];
         }
-
         C[col*m + row] = alpha * res + beta * C[col*m + row];
     }
 }
