@@ -262,9 +262,7 @@ void initializeBSTLevels(int nhorizon, int* levels) {
 }
 template <typename T>
   __global__
-  void solve_Kernel(uint32_t nhorizon,    
-                    uint32_t ninputs,
-                    uint32_t nstates,
+  void solve_Kernel(uint32_t* info,
                     T *d_Q_R,
                     T *d_q_r,
                     T *d_A_B,
@@ -283,8 +281,12 @@ template <typename T>
   const uint32_t block_dim = blockDim.x;
   const uint32_t thread_id = threadIdx.x;
   const uint32_t grid_dim=gridDim.x;
-
+  if(DEBUG)
+    printf("1\n");
   //const for KKT matrix
+  int nhorizon = info[0];
+  int ninputs = info[1];
+  int nstates = info[2];
   const uint32_t states_sq = nstates*nstates;
   const uint32_t inputs_sq = ninputs*ninputs;
   const uint32_t inp_states = ninputs*nstates;
@@ -293,7 +295,8 @@ template <typename T>
 
   const uint32_t depth = log2f(nhorizon);
 
-
+  if(DEBUG)
+    printf("2\n");
   //move everything to shared memory
   extern __shared__ T s_temp[];
   T *s_Q_R = s_temp;
@@ -305,7 +308,8 @@ template <typename T>
   T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
   T *s_nI = s_F_input + depth*inp_states*nhorizon;
   int *s_levels = (int *)(s_nI + states_sq);
-
+  if(DEBUG)
+    printf("3\n");
 
   //move ram to shared
   for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon; i += block_dim){
@@ -324,15 +328,22 @@ template <typename T>
     s_d[i] = d_d[i];
   }
 
+  if(DEBUG)
+    printf("4\n");
+
   diag_Matrix_set<float>(nstates, -1.0 , s_nI);
 
+  if(DEBUG)
+    printf("5\n");
   // initialize
   block.sync();
-
+  if(DEBUG)
+    printf("6\n");
   if(thread_id == 0){
     initializeBSTLevels(nhorizon, s_levels);
   }
-
+  if(DEBUG)
+    printf("7\n");
   //negate q_r,d vectors (using threads)
   for (uint32_t ind = thread_id; ind < (ninputs+nstates)*nhorizon; ind+=block_dim){
     s_q_r[ind] *= -1;
@@ -341,17 +352,21 @@ template <typename T>
   for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
     s_d[ind] *= -1;
   }
+    if(DEBUG)
+    printf("8\n");
   //sync threads
   block.sync();
-
+  if(DEBUG)
+    printf("9\n");
   //should solveLeaf in parallel
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
     solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                     s_Q_R, s_q_r, s_A_B,s_d, 
                     s_F_lambda, s_F_state, s_F_input);
   }
-
-  //for some reason doesn't work when I call here 
+  if(DEBUG)
+    printf("10\n");
+  //for some reason doesn't work when I call here  grid or block.sync()
   //grid.sync();
   block.sync();
   printf("done with solveLeaf\n");
@@ -407,9 +422,9 @@ template <typename T>
     //in original code syncs here before proceeding
     //change to grid.sync()?
     block.sync();
-    printf("done with innerproducts");
+    printf("done with innerproducts\n");
 
-    if(DEBUG) {
+    if(!DEBUG) {
       // if(block_id == 0 && thread_id == 0) {
       //   printf("CHECKING DATA AFTER SOLVE_LEAF");
       //     for(unsigned i = 0; i < nhorizon; i++) { 
@@ -440,7 +455,6 @@ template <typename T>
       }
     }
 
-    break;
 
     //Cholesky factorization
     for (uint32_t leaf= block_id; leaf < numleaves; leaf += grid_dim) {
@@ -478,8 +492,7 @@ template <typename T>
   }
   //solve for solution vector using the cached factorization
   for (uint32_t level = 0; level < depth; ++level) {
-    if(DEBUG){
-      break;
+    if(!DEBUG){
     }
     uint32_t numleaves = pow(2.0, (depth-level-1) );
 
