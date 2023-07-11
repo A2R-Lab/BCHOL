@@ -284,19 +284,29 @@ template <typename T>
   if(DEBUG)
     printf("1\n");
   //const for KKT matrix
+  /*
   int nhorizon = info[0];
+      if(DEBUG)
+    printf("2.0!\n");
   int ninputs = info[1];
-  int nstates = info[2];
+  int nstates = info[2];*/
+    int nhorizon =8;
+    int ninputs = 3;
+    int nstates = 6;
+    if(DEBUG)
+    printf("2.0\n");
   const uint32_t states_sq = nstates*nstates;
   const uint32_t inputs_sq = ninputs*ninputs;
   const uint32_t inp_states = ninputs*nstates;
   const uint32_t cost_step = states_sq+inputs_sq;
   const uint32_t dyn_step = states_sq+inp_states;
+    if(DEBUG)
+    printf("2.1\n");
 
   const uint32_t depth = log2f(nhorizon);
 
   if(DEBUG)
-    printf("2\n");
+    printf("2.2\n");
   //move everything to shared memory
   extern __shared__ T s_temp[];
   T *s_Q_R = s_temp;
@@ -367,8 +377,8 @@ template <typename T>
   if(DEBUG)
     printf("10\n");
   //for some reason doesn't work when I call here  grid or block.sync()
-  //grid.sync();
-  block.sync();
+  grid.sync();
+  //block.sync();
   printf("done with solveLeaf\n");
 
   if(!DEBUG) {
