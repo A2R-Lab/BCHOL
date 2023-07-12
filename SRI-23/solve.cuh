@@ -514,6 +514,7 @@ template <typename T>
     printf("done with update_shur level %d\n",level);
   }
 
+
   //solve for solution vector using the cached factorization
   for (uint32_t level = 0; level < depth; ++level) {
     uint32_t numleaves = pow(2.0, (depth-level-1) );
@@ -528,40 +529,16 @@ template <typename T>
     block.sync();
     printf("done with factor_inner_sol level %d\n",level);
 
-    if(DEBUG) {
-      printf("CHECKING DATA AFTER FACTOR INNER SOL\n");
-      for(unsigned i = 0; i < nhorizon; i++) { 
-        printf("d%d: \n", i);
-        printMatrix(s_d+i*nstates,1,nstates);      
-        printf("q%d: \n", i);
-        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-        printf("r%d: \n", i);
-        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
-      }
-    }
     //Solve for separator variables with cached Cholesky decomposition
     for(uint32_t leaf = thread_id; leaf < numleaves; leaf +=block_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      float* Sbar = s_F_lambda + (level*nhorizon+lin_ind+1);
-      float* zy = s_d + lin_ind+1;
+      float* Sbar = s_F_lambda + (level*nhorizon+lin_ind+1)*(nstates*nstates);
+      float* zy = s_d + (lin_ind+1)*nstates;
       // Sbar \ z = zbar
-      cholSolve_InPlace(Sbar, zy, false, nstates, nstates);
+      cholSolve_InPlace(Sbar, zy, false, nstates, 1);
     }
     block.sync();
     printf("done with chol_solve_sol level %d\n",level);
-
-    if(DEBUG) {
-      printf("CHECKING DATA AFTER CHOL SOLVE SOL\n");
-      for(unsigned i = 0; i < nhorizon; i++) { 
-        printf("d%d: \n", i);
-        printMatrix(s_d+i*nstates,1,nstates);      
-        printf("q%d: \n", i);
-        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-        printf("r%d: \n", i);
-        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
-      }
-    }
-
 
     // Propagate information to solution vector
     //    y = y - F zbar
@@ -573,31 +550,16 @@ template <typename T>
     }
     block.sync();
     printf("done with update_shur_sol level %d\n",level);
-
-    if(DEBUG) {
-      printf("CHECKING DATA AFTER UPDATE SCHUR SOL\n");
-      for(unsigned i = 0; i < nhorizon; i++) { 
-        printf("d%d: \n", i);
-        printMatrix(s_d+i*nstates,1,nstates);      
-        printf("q%d: \n", i);
-        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-        printf("r%d: \n", i);
-        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
-      }
-    }
   }
   printf("done!\n");
 
-  if(!DEBUG) {
+  if(DEBUG) {
     if(block_id == 0 && thread_id == 0) {
       printf("CHECK FINAL RESULTS\n");
-        for(unsigned i = 0; i < nhorizon; i++) { 
-          printf("d%d: \n", i);
-          printMatrix(s_d+i*nstates,1,nstates);      
-          printf("q%d: \n", i);
-          printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-          printf("r%d: \n", i);
-          printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+        for(unsigned i = 0; i < nhorizon; i++) {
+          printMatrix(s_d+i*nstates,nstates,1);     
+          printMatrix(s_q_r+(i*(ninputs+nstates)),nstates,1);
+          printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),ninputs,1);
         }
     }
   }
