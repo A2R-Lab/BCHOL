@@ -43,15 +43,17 @@ done chol decomp
 10
 done with solveLeaf
 done with innerproducts level 0
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-CHECKING DATA AFTER Chol Fact
+done with chol_fact level 0
+done with solve_chol level 0
+CHECKING DATA AFTER Chol Solve
 d0: 
 -1.000000  -2.200000  1.600000  -1.600000  4.200000  -1.000000  
 
@@ -127,12 +129,12 @@ r7:
 LEVEL 0
 
 F_lambda #0: 
--1.000000  -0.000000  -0.000000  -0.000000  -0.000000  -0.000000  
--0.000000  -1.000000  -0.000000  -0.000000  -0.000000  -0.000000  
--0.000000  -0.000000  -1.000000  -0.000000  -0.000000  -0.000000  
--0.100000  -0.000000  -0.000000  -1.000000  -0.000000  -0.000000  
--0.000000  -0.100000  -0.000000  -0.000000  -1.000000  -0.000000  
--0.000000  -0.000000  -0.100000  -0.000000  -0.000000  -1.000000  
+-1.000000  -0.000000  nan  nan  nan  nan  
+-0.000000  -1.000000  nan  nan  nan  nan  
+-0.000000  -0.000000  nan  nan  nan  nan  
+-0.100000  nan  nan  nan  nan  nan  
+-0.000000  nan  nan  nan  nan  nan  
+-0.000000  nan  nan  nan  nan  nan  
 
 F_state #0: 
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
@@ -148,11 +150,11 @@ F_input #0:
 0.000000  0.000000  0.500000  0.000000  0.000000  10.000000  
 
 F_lambda #1: 
-1.001249  0.000000  0.000000  0.050000  0.000000  0.000000  
-0.000000  1.001249  0.000000  0.000000  0.050000  0.000000  
-0.000000  0.000000  1.001249  0.000000  0.000000  0.050000  
-0.049938  0.000000  0.000000  1.413332  0.000000  0.000000  
-0.000000  0.049938  0.000000  0.000000  1.413332  0.000000  
+nan  0.000000  0.000000  0.050000  0.000000  0.000000  
+nan  1.001249  0.000000  0.000000  0.050000  0.000000  
+nan  0.000000  1.001249  0.000000  0.000000  0.050000  
+nan  0.000000  0.000000  1.413332  0.000000  0.000000  
+nan  0.049938  0.000000  0.000000  1.413332  0.000000  
 0.000000  0.000000  0.049938  0.000000  0.000000  1.413332  
 
 F_state #1: 
@@ -633,13 +635,14 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
-done with F!
 done with innerproducts level 1
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-CHECKING DATA AFTER Chol Fact
+done with chol_fact level 1
+done with solve_chol level 1
+CHECKING DATA AFTER Chol Solve
 d0: 
 -1.000000  -2.200000  1.600000  -1.600000  4.200000  -1.000000  
 
@@ -1221,11 +1224,12 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
-done with F!
 done with innerproducts level 2
-Chol  FactLaunched chol in place
+Launched chol in place
 done chol decomp
-CHECKING DATA AFTER Chol Fact
+done with chol_fact level 2
+done with solve_chol level 2
+CHECKING DATA AFTER Chol Solve
 d0: 
 -1.000000  -2.200000  1.600000  -1.600000  4.200000  -1.000000  
 
@@ -1807,6 +1811,5 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
-done with F!
 done!
 BYE!
