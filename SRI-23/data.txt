@@ -12,7 +12,35 @@ Launched Kernel
 7
 8
 9
-Launched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedoneLaunched chol in placedone10
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+Launched chol in place
+done chol decomp
+10
 done with solveLeaf
 done with innerproducts level 0
 
@@ -525,7 +553,15 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
-Chol  FactLaunched chol in placedoneChol  FactLaunched chol in placedoneChol  FactLaunched chol in placedoneChol  FactLaunched chol in placedoneCHECKING DATA AFTER Chol Fact
+Chol  FactLaunched chol in place
+done chol decomp
+Chol  FactLaunched chol in place
+done chol decomp
+Chol  FactLaunched chol in place
+done chol decomp
+Chol  FactLaunched chol in place
+done chol decomp
+CHECKING DATA AFTER Chol Fact
 d0: 
 -1.000000  -2.200000  1.600000  -1.600000  4.200000  -1.000000  
 
@@ -1619,7 +1655,11 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
-Chol  FactLaunched chol in placedoneChol  FactLaunched chol in placedoneCHECKING DATA AFTER Chol Fact
+Chol  FactLaunched chol in place
+done chol decomp
+Chol  FactLaunched chol in place
+done chol decomp
+CHECKING DATA AFTER Chol Fact
 d0: 
 -1.000000  -2.200000  1.600000  -1.600000  4.200000  -1.000000  
 
@@ -2713,7 +2753,9 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
-Chol  FactLaunched chol in placedoneCHECKING DATA AFTER Chol Fact
+Chol  FactLaunched chol in place
+done chol decomp
+CHECKING DATA AFTER Chol Fact
 d0: 
 -1.000000  -2.200000  1.600000  -1.600000  4.200000  -1.000000  
 
