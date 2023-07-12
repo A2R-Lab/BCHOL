@@ -14,7 +14,7 @@ void lowerBackSub_InPlace(T *s_A, T *s_B, bool istransposed, int n, int m, cgrps
         if (istransposed) {
             for (int col = n-1; col >= 0; col--) {
                 for(int col_l = n-1; col_l > col; col_l--) {
-                    s_B[k*n + col] -= s_A[col_l*n+col] * s_B[k*n + col_l];
+                    s_B[k*n + col] -= s_A[col*n+col_l] * s_B[k*n + col_l];
                 }
                 s_B[k*n + col] /= s_A[col*n+col];
             }
