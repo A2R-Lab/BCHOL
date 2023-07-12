@@ -12,45 +12,9 @@ Launched Kernel
 7
 8
 9
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
 10
 done with solveLeaf
 done with innerproducts level 0
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
 done with chol_fact level 0
 done with solve_chol level 0
 CHECKING DATA AFTER Chol Solve
@@ -636,10 +600,6 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 done with innerproducts level 1
-Launched chol in place
-done chol decomp
-Launched chol in place
-done chol decomp
 done with chol_fact level 1
 done with solve_chol level 1
 CHECKING DATA AFTER Chol Solve
@@ -1225,8 +1185,6 @@ F_input #23:
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 0.000000  0.000000  0.000000  0.000000  0.000000  0.000000  
 done with innerproducts level 2
-Launched chol in place
-done chol decomp
 done with chol_fact level 2
 done with solve_chol level 2
 CHECKING DATA AFTER Chol Solve
