@@ -401,12 +401,25 @@ int main() {
 */
 
    //Launch CUDA kernel with block and grid dimensions
+   int info[] = {nhorizon,ninputs,nstates};
    std::uint32_t blockSize = 1;
    std::uint32_t gridSize = 1;
    uint32_t shared_mem = 5*2160*sizeof(float);
-   //the arguments allign with solve.cuh - CHECKED
-   solve_Kernel<float><<<gridSize, blockSize,shared_mem>>>(nhorizon, ninputs, nstates, d_Q_R, d_q_r, d_A_B, d_d, d_F_lambda, d_F_state, d_F_input);
+   const void* kernelFunc = reinterpret_cast<const void*>(solve_Kernel<float>);
+   void* args[] = {             // prepare the kernel arguments
+    info,
+    &d_Q_R,
+    &d_q_r,
+    &d_A_B,
+    &d_d,
+    &d_F_lambda,
+    &d_F_state,
+    &d_F_input
+};
+
+   cudaLaunchCooperativeKernel ( kernelFunc, gridSize, blockSize, args, shared_mem );
    cudaDeviceSynchronize();
+   printf("BYE!");
    
    //here can either launch one Kernel and call all functions within it and use blocks (cprgs)
    //or can potentially launch a kernel per each big function (solve_leaf etc)
@@ -415,6 +428,8 @@ int main() {
    //Copy back to the host
    cudaMemcpy(q_r,d_q_r, 72*sizeof(float),cudaMemcpyDeviceToHost);
    cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
+   cudaMemcpy(Q_R,d_Q_R, 360*sizeof(float),cudaMemcpyDeviceToHost);
+   cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
 
    //Free allocated GPU memory
    cudaFree(d_Q_R);
