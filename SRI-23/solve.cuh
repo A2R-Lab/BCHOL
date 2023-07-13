@@ -509,7 +509,7 @@ template <typename T>
       updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k,  level, upper_level, 
                         calc_lambda, nstates,  ninputs, nhorizon);
     }
-    block.sync();
+    grid.sync();
         
     printf("done with update_shur level %d\n",level);
   }
@@ -526,7 +526,7 @@ template <typename T>
       // Calculate z = d - F'b1 - F2'b2
       factorInnerProduct_sol(s_A_B, s_q_r, s_d, lin_ind, nstates, ninputs, nhorizon);
     }
-    block.sync();
+    grid.sync();
     printf("done with factor_inner_sol level %d\n",level);
 
     //Solve for separator variables with cached Cholesky decomposition
@@ -537,7 +537,7 @@ template <typename T>
       // Sbar \ z = zbar
       cholSolve_InPlace(Sbar, zy, false, nstates, 1);
     }
-    block.sync();
+    grid.sync();
     printf("done with chol_solve_sol level %d\n",level);
 
     // Propagate information to solution vector
@@ -548,7 +548,7 @@ template <typename T>
       updateShur_sol<float>(s_F_state,s_F_input,s_F_lambda, s_q_r, s_d, index, k , level,
                         calc_lambda, nstates,ninputs, nhorizon);
     }
-    block.sync();
+    grid.sync();
     printf("done with update_shur_sol level %d\n",level);
   }
   printf("done!\n");
