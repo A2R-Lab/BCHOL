@@ -12,6 +12,7 @@
 #include "./help_functions/set_const.cuh"
 #include "./help_functions/dot_product.cuh"
 #include "./help_functions/scaled_sum.cuh"
+#include "./help_functions/print_matrix.cuh"
 __device__ const bool DEBUG = true;
 
 namespace cgrps = cooperative_groups;
@@ -37,32 +38,22 @@ namespace cgrps = cooperative_groups;
  * @param T *s_F_state - an array to hold the result of 
  * @param T *s_F_input - an array to hold the result of 
  */
-template <typename T>
-  __device__
-  void printMatrix(T* matrix, uint32_t rows, uint32_t cols) {
-  for (unsigned i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
-      printf("%f  ", matrix[j*rows+i]); 
-    }
-    printf("\n");
-  }
-}
 
 template <typename T> 
-  __device__
-  void solveLeaf(int *s_levels,
-                 uint32_t index,
-                 uint32_t nstates,
-                 uint32_t ninputs,
-                 uint32_t nhorizon,
-                 T *s_Q_R,
-                 T *s_q_r,
-                 T *s_A_B,
-                 T *s_d,
-                 T *s_F_lambda,
-                 T *s_F_state,
-                 T *s_F_input
-                ) {
+__device__
+void solveLeaf(int *s_levels,
+               uint32_t index,
+               uint32_t nstates,
+               uint32_t ninputs,
+               uint32_t nhorizon,
+               T *s_Q_R,
+               T *s_q_r,
+               T *s_A_B,
+               T *s_d,
+               T *s_F_lambda,
+               T *s_F_state,
+               T *s_F_input
+              ) {
 
   //const for KKT matrix
   const uint32_t states_sq = nstates*nstates;
@@ -74,63 +65,63 @@ template <typename T>
 
   //setting up arrays for specific indexes
   int level = s_levels[index];
-  float* q = &s_q_r[index*(ninputs+nstates)];
-  float* r = &s_q_r[index*(ninputs+nstates)+nstates];
-  float* A = &s_A_B[index*dyn_step];
-  float* B = &s_A_B[index*dyn_step+states_sq];
-  float* d = &s_d[index*nstates];
+  T* q = &s_q_r[index*(ninputs+nstates)];
+  T* r = &s_q_r[index*(ninputs+nstates)+nstates];
+  T* A = &s_A_B[index*dyn_step];
+  T* B = &s_A_B[index*dyn_step+states_sq];
+  T* d = &s_d[index*nstates];
   //fact matrices
-  float* F_lambda = &s_F_lambda[(index + nhorizon * level)*states_sq];
-  float* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
-  float* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
-  float* zy_temp;
+  T* F_lambda = &s_F_lambda[(index + nhorizon * level)*states_sq];
+  T* F_state = &s_F_state[(index+nhorizon*level)*states_sq];
+  T* F_input = &s_F_input[(index+nhorizon*level)*inp_states];
+  T* zy_temp;
   
   if (index == 0) {
-    float* Q = &s_Q_R[cost_step*index]; 
-    float* R = &s_Q_R[cost_step*index+states_sq]; 
+    T* Q = &s_Q_R[cost_step*index]; 
+    T* R = &s_Q_R[cost_step*index+states_sq]; 
     
     //Solve the block system of equations.
-    glass::copy<float>(nstates*nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
+    glass::copy<T>(nstates*nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
 
     // dont need to coz we initialized with 0s set_const(nstates*nstates,0, s_F_state); 
-    set_const<float>(nstates*nstates,0.0, s_F_state);
-    glass::copy<float>(nstates*ninputs,1.0, B, F_input); //copy  B_0
-    chol_InPlace<float>(ninputs,R); //maybe unnessasry
-    cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); //Fu = R\B
-    cholSolve_InPlace<float>(R, r, false, ninputs, 1);  //zu = R\zu
+    set_const<T>(nstates*nstates,0.0, s_F_state);
+    glass::copy<T>(nstates*ninputs,1.0, B, F_input); //copy  B_0
+    chol_InPlace<T>(ninputs,R); //maybe unnessasry
+    cholSolve_InPlace<T>(R, F_input, false, ninputs, nstates); //Fu = R\B
+    cholSolve_InPlace<T>(R, r, false, ninputs, 1);  //zu = R\zu
 
     //Solve the block system of eqn (!overwriting d and q_r vectors!)
     zy_temp = &s_F_state[nhorizon*states_sq];
-    glass::copy<float>(nstates,1.0,d,zy_temp); 
-    glass::copy<float>(nstates,1.0, q, d);
-    glass::gemv<float>(nstates,nstates,-1.0, Q, zy_temp, -1.0, d);  // zy = - Q * zy - zx
-    glass::copy<float>(nstates,-1.0,zy_temp,q);
-    set_const<float>(nstates, 0.0, zy_temp); //initialize back to 0s
+    glass::copy<T>(nstates,1.0,d,zy_temp); 
+    glass::copy<T>(nstates,1.0, q, d);
+    glass::gemv<T>(nstates,nstates,-1.0, Q, zy_temp, -1.0, d);  // zy = - Q * zy - zx
+    glass::copy<T>(nstates,-1.0,zy_temp,q);
+    set_const<T>(nstates, 0.0, zy_temp); //initialize back to 0s
 
   } else {
 
-    float* Q = &s_Q_R[index*cost_step]; 
-    chol_InPlace<float>(nstates,Q, cgrps::this_thread_block());
+    T* Q = &s_Q_R[index*cost_step]; 
+    chol_InPlace<T>(nstates,Q, cgrps::this_thread_block());
 
     //Not the last timestep
     if(index<nhorizon -1) {
-      float* R = &s_Q_R[index*cost_step+states_sq];
-      chol_InPlace<float>(ninputs,R, cgrps::this_thread_block());
-      cholSolve_InPlace<float>(R, r,false, ninputs,1); //zu = R \ zu 
+      T* R = &s_Q_R[index*cost_step+states_sq];
+      chol_InPlace<T>(ninputs,R, cgrps::this_thread_block());
+      cholSolve_InPlace<T>(R, r,false, ninputs,1); //zu = R \ zu 
 
-      glass::copy<float>(nstates*nstates,A, F_state);
-      cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates);
+      glass::copy<T>(nstates*nstates,A, F_state);
+      cholSolve_InPlace<T>(Q, F_state, false, nstates, nstates);
 
-      glass::copy<float>(ninputs*nstates,1.0, B, F_input);
-      cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);  
+      glass::copy<T>(ninputs*nstates,1.0, B, F_input);
+      cholSolve_InPlace<T>(R, F_input, false, ninputs, nstates);  
     }
 
     //Only term at the last timestep
-    cholSolve_InPlace<float>(Q, q, false, nstates, 1); // Q\-q
+    cholSolve_InPlace<T>(Q, q, false, nstates, 1); // Q\-q
     int prev_level = s_levels[index-1];
-    float* F_state_prev = s_F_state+(index+nhorizon*prev_level)*states_sq; //prev level  F_state
-    diag_Matrix_set<float>(nstates, -1.0 , F_state_prev);
-    cholSolve_InPlace<float>(Q, F_state_prev, false, nstates, nstates); //solve Q \ -I from previous time step
+    T* F_state_prev = s_F_state+(index+nhorizon*prev_level)*states_sq; //prev level  F_state
+    diag_Matrix_set<T>(nstates, -1.0 , F_state_prev);
+    cholSolve_InPlace<T>(Q, F_state_prev, false, nstates, nstates); //solve Q \ -I from previous time step
   }
 }
 
@@ -148,20 +139,20 @@ void factorInnerProduct(T* s_A_B,
 
   int dyn_step = nstates*nstates+nstates*ninputs;
 
-  float* C1_state = s_A_B + (index*dyn_step); 
-  float* C1_input = s_A_B + (index*dyn_step + nstates*nstates);
+  T* C1_state = s_A_B + (index*dyn_step); 
+  T* C1_input = s_A_B + (index*dyn_step + nstates*nstates);
 
   uint32_t linear_index = index + nhorizon * fact_level;
-  float* F1_state = fact_state + linear_index*(nstates*nstates);
-  float* F1_input = fact_input + linear_index*(ninputs*nstates);
+  T* F1_state = fact_state + linear_index*(nstates*nstates);
+  T* F1_input = fact_input + linear_index*(ninputs*nstates);
 
   linear_index = (index + 1) + nhorizon * fact_level;
-  float* F2_state = fact_state + linear_index*(nstates*nstates);
-  float *S = fact_lambda + linear_index*(nstates*nstates); //F2_lambda
+  T* F2_state = fact_state + linear_index*(nstates*nstates);
+  T *S = fact_lambda + linear_index*(nstates*nstates); //F2_lambda
 
-  dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
-  dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
-  scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state 
+  dot_product<T>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
+  dot_product<T>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+  scaled_sum<T>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state 
 }
 
 template <typename T> 
@@ -178,20 +169,20 @@ void factorInnerProduct_sol(T* s_A_B,
   int dyn_step_qr = nstates+ninputs;
 
   // Matrix
-  float* C1_state = s_A_B + (index*dyn_step_AB); 
-  float* C1_input = s_A_B + (index*dyn_step_AB + nstates*nstates);
+  T* C1_state = s_A_B + (index*dyn_step_AB); 
+  T* C1_input = s_A_B + (index*dyn_step_AB + nstates*nstates);
 
   // Vector
-  float* F1_state = s_q_r + (index*dyn_step_qr);
-  float* F1_input = s_q_r + (index*dyn_step_qr + nstates);
+  T* F1_state = s_q_r + (index*dyn_step_qr);
+  T* F1_input = s_q_r + (index*dyn_step_qr + nstates);
   
   index += 1;
-  float* F2_state = s_q_r + (index*dyn_step_qr);
-  float *S = s_d + (index*nstates);
+  T* F2_state = s_q_r + (index*dyn_step_qr);
+  T *S = s_d + (index*nstates);
 
-  dot_product<float>(nstates, nstates, 1, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
-  dot_product<float>(nstates, ninputs, 1, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
-  scaled_sum<float>(nstates, 1, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state 
+  dot_product<T>(nstates, nstates, 1, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
+  dot_product<T>(nstates, ninputs, 1, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+  scaled_sum<T>(nstates, 1, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state 
 }
 
 template <typename T> 
@@ -205,10 +196,10 @@ void SolveCholeskyFactor(T* fact_state,
                          int nstates, 
                          int ninputs, 
                          int nhorizon) {
-  float *Sbar = fact_lambda + ((index + 1) + nhorizon * level)*nstates*nstates;
-  float *f = fact_lambda + ((index + 1) + nhorizon * upper_level)*nstates*nstates;
+  T *Sbar = fact_lambda + ((index + 1) + nhorizon * level)*nstates*nstates;
+  T *f = fact_lambda + ((index + 1) + nhorizon * upper_level)*nstates*nstates;
   
-  cholSolve_InPlace<float>(Sbar, f, 0, nstates, nstates);
+  cholSolve_InPlace<T>(Sbar, f, 0, nstates, nstates);
 }
 
 __device__
@@ -248,16 +239,16 @@ void updateShur(T* fact_state,
                 int ninputs, 
                 int nhorizon
                ) {
-  float* g_state;
-  float* g_input;
-  float* g_lambda;
+  T* g_state;
+  T* g_input;
+  T* g_lambda;
 
-  float* F_state;
-  float* F_input;
-  float* F_lambda;
+  T* F_state;
+  T* F_input;
+  T* F_lambda;
 
   int linear_index = (index + 1) + nhorizon * upper_level;
-  float* f = fact_lambda + (linear_index * nstates*nstates);
+  T* f = fact_lambda + (linear_index * nstates*nstates);
 
   linear_index = i + nhorizon * upper_level;
   g_state = fact_state + (linear_index * (nstates *nstates));
@@ -271,10 +262,10 @@ void updateShur(T* fact_state,
   F_lambda = fact_lambda + linear_index*nstates*nstates;
 
   if(calc_lambda) {
-    glass::gemm<float,0>(nstates, nstates, nstates, -1.0, F_lambda, f, 1.0, g_lambda,cgrps::this_thread_block());
+    glass::gemm<T,0>(nstates, nstates, nstates, -1.0, F_lambda, f, 1.0, g_lambda,cgrps::this_thread_block());
   }
-  glass::gemm<float,0>(nstates, nstates, nstates, -1.0, F_state, f, 1.0, g_state,cgrps::this_thread_block());
-  glass::gemm<float,0>(ninputs, nstates, nstates, -1.0, F_input, f, 1.0, g_input,cgrps::this_thread_block());
+  glass::gemm<T,0>(nstates, nstates, nstates, -1.0, F_state, f, 1.0, g_state,cgrps::this_thread_block());
+  glass::gemm<T,0>(ninputs, nstates, nstates, -1.0, F_input, f, 1.0, g_input,cgrps::this_thread_block());
 }
 
 template <typename T> 
@@ -292,17 +283,17 @@ void updateShur_sol(T* fact_state,
                     int ninputs, 
                     int nhorizon
                   ) {
-  float* g_state;
-  float* g_input;
-  float* g_lambda;
+  T* g_state;
+  T* g_input;
+  T* g_lambda;
 
-  float* F_state;
-  float* F_input;
-  float* F_lambda;
+  T* F_state;
+  T* F_input;
+  T* F_lambda;
 
   // ndlqr_GetNdFactor(soln, index + 1, 0, &f_factor);
   // Matrix* f = &f_factor->lambda;
-  float* f = s_d + ((index+1)*nstates);
+  T* f = s_d + ((index+1)*nstates);
 
   // ndlqr_GetNdFactor(soln, i, 0, &g);
   int dyn_step_qr = nstates + ninputs;
@@ -317,17 +308,17 @@ void updateShur_sol(T* fact_state,
   F_lambda = fact_lambda + linear_index*nstates*nstates;
 
   if(calc_lambda) {
-    glass::gemm<float,0>(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda,cgrps::this_thread_block());
+    glass::gemm<T,0>(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda,cgrps::this_thread_block());
   }
-  glass::gemm<float,0>(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state,cgrps::this_thread_block());
-  glass::gemm<float,0>(ninputs, nstates, 1, -1.0, F_input, f, 1.0, g_input,cgrps::this_thread_block());
+  glass::gemm<T,0>(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state,cgrps::this_thread_block());
+  glass::gemm<T,0>(ninputs, nstates, 1, -1.0, F_input, f, 1.0, g_input,cgrps::this_thread_block());
 }
 
 
 
 __device__
 void initializeBSTLevels(int nhorizon, int* levels) {
-  int depth = log2f (nhorizon);
+  int depth = log2f(nhorizon);
 
   for (int i = 0; i < nhorizon/2; i++){
     levels[2*i] = 0;
@@ -349,45 +340,36 @@ void initializeBSTLevels(int nhorizon, int* levels) {
     }
   }
 }
+
+
 template <typename T>
-  __global__
-  void solve_Kernel(uint32_t* info,
-                    T *d_Q_R,
-                    T *d_q_r,
-                    T *d_A_B,
-                    T *d_d,
-                    T *d_F_lambda,
-                    T *d_F_state,
-                    T *d_F_input
-                   ){   
+__global__
+void solve_Kernel(uint32_t* d_info,
+                  T *d_Q_R,
+                  T *d_q_r,
+                  T *d_A_B,
+                  T *d_d,
+                  T *d_F_lambda,
+                  T *d_F_state,
+                  T *d_F_input
+                  ){   
 
   printf("Launched Kernel\n");
-  //Ask Emre about cgrps again!
   const cgrps::thread_block block = cgrps::this_thread_block();	 
   const cgrps::grid_group grid = cgrps::this_grid();
   const uint32_t block_id = blockIdx.x;
   const uint32_t block_dim = blockDim.x;
   const uint32_t thread_id = threadIdx.x;
-  const uint32_t grid_dim=gridDim.x;
-
-  //const for KKT matrix
-  /*
-  int nhorizon = info[0];
-      if(DEBUG)
-    printf("2.0!\n");
-  int ninputs = info[1];
-  int nstates = info[2];*/
-  int nhorizon =8;
-  int ninputs = 3;
-  int nstates = 6;
-
+  const uint32_t grid_dim = gridDim.x;
+  const uint32_t nhorizon = d_info[0];
+  const uint32_t ninputs = d_info[1];
+  const uint32_t nstates = d_info[2];
+  const uint32_t depth = d_info[3];
   const uint32_t states_sq = nstates*nstates;
   const uint32_t inputs_sq = ninputs*ninputs;
   const uint32_t inp_states = ninputs*nstates;
   const uint32_t cost_step = states_sq+inputs_sq;
   const uint32_t dyn_step = states_sq+inp_states;
-
-  const uint32_t depth = log2f(nhorizon);
 
   //move everything to shared memory
   extern __shared__ T s_temp[];
@@ -398,8 +380,7 @@ template <typename T>
   T *s_F_lambda = s_d + nstates*nhorizon;
   T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
   T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
-  T *s_nI = s_F_input + depth*inp_states*nhorizon;
-  int *s_levels = (int *)(s_nI + states_sq);
+  int *s_levels = (int*)(s_F_input + depth*inp_states*nhorizon);
 
   //move ram to shared
   for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon; i += block_dim){
@@ -418,9 +399,6 @@ template <typename T>
     s_d[i] = d_d[i];
   }
 
-  diag_Matrix_set<float>(nstates, -1.0 , s_nI);
-
- 
   // initialize
   block.sync();
 
@@ -442,7 +420,7 @@ template <typename T>
 
   //should solveLeaf in parallel
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
-    solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
+    solveLeaf<T>(s_levels, ind, nstates, ninputs, nhorizon,
                     s_Q_R, s_q_r, s_A_B,s_d, 
                     s_F_lambda, s_F_state, s_F_input);
   }
@@ -465,11 +443,9 @@ template <typename T>
       uint32_t leaf = ind / cur_depth;
       uint32_t upper_level = level + (ind % cur_depth);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+      factorInnerProduct<T>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
     }
 
-    //in original code syncs here before proceeding
-    //change to grid.sync()?
     grid.sync();
     printf("done with innerproducts level %d\n",level);
 
@@ -477,8 +453,8 @@ template <typename T>
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim) {
       uint32_t index = pow(2.0, level) *(2*leaf+1)-1;
       uint32_t lin_ind = index + nhorizon*level;
-      float* S = s_F_lambda+(states_sq*(lin_ind+1));
-      chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
+      T* S = s_F_lambda+(states_sq*(lin_ind+1));
+      chol_InPlace<T>(nstates, S, cgrps::this_thread_block());
     }
 
     grid.sync();
@@ -491,7 +467,7 @@ template <typename T>
       uint32_t leaf = i / upper_levels;
       uint32_t upper_level = level + 1 + (i % upper_levels);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, 
+      SolveCholeskyFactor<T>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, 
                                  nstates, ninputs, nhorizon);
     }
 
@@ -506,7 +482,7 @@ template <typename T>
 
       int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
       bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
-      updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k,  level, upper_level, 
+      updateShur<T>(s_F_state, s_F_input, s_F_lambda, index, k,  level, upper_level, 
                         calc_lambda, nstates,  ninputs, nhorizon);
     }
     block.sync();
@@ -532,8 +508,8 @@ template <typename T>
     //Solve for separator variables with cached Cholesky decomposition
     for(uint32_t leaf = thread_id; leaf < numleaves; leaf +=block_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      float* Sbar = s_F_lambda + (level*nhorizon+lin_ind+1)*(nstates*nstates);
-      float* zy = s_d + (lin_ind+1)*nstates;
+      T* Sbar = s_F_lambda + (level*nhorizon+lin_ind+1)*(nstates*nstates);
+      T* zy = s_d + (lin_ind+1)*nstates;
       // Sbar \ z = zbar
       cholSolve_InPlace(Sbar, zy, false, nstates, 1);
     }
@@ -545,7 +521,7 @@ template <typename T>
     for(uint32_t k = thread_id; k < nhorizon; k+=block_dim) {
       int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
       bool calc_lambda = shouldCalcLambda(index, k,nhorizon, s_levels); // nhorizon, s_levels
-      updateShur_sol<float>(s_F_state,s_F_input,s_F_lambda, s_q_r, s_d, index, k , level,
+      updateShur_sol<T>(s_F_state,s_F_input,s_F_lambda, s_q_r, s_d, index, k , level,
                         calc_lambda, nstates,ninputs, nhorizon);
     }
     block.sync();
