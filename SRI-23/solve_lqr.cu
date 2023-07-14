@@ -218,7 +218,7 @@ int main() {
                               0.0, 0.0, 0.0 //end of B7
                            };
                 
-   double d[48] = {  1.0, -1.0, 2.0, -2.0, 3.0, -3.0, //x0
+   double d[d_size] = {  1.0, -1.0, 2.0, -2.0, 3.0, -3.0, //x0
                      1.5, 1.5, 1.5, 1.5, 1.5, 1.5, //d0
                      3.0, 3.0, 3.0, 3.0, 3.0, 3.0, //d1
                      4.5, 4.5, 4.5,4.5, 4.5, 4.5, //d2
@@ -289,15 +289,9 @@ int main() {
    cudaDeviceSynchronize();
    printf("BYE!");
    
-   //here can either launch one Kernel and call all functions within it and use blocks (cprgs)
-   //or can potentially launch a kernel per each big function (solve_leaf etc)
-   
-   
-   //Copy back to the host
-   cudaMemcpy(q_r,d_q_r, 72*sizeof(double),cudaMemcpyDeviceToHost);
-   cudaMemcpy(d,d_d, 48*sizeof(double),cudaMemcpyDeviceToHost);
-   // cudaMemcpy(Q_R,d_Q_R, 360*sizeof(double),cudaMemcpyDeviceToHost);
-   // cudaMemcpy(A_B,d_A_B, 432*sizeof(double),cudaMemcpyDeviceToHost);
+   //Copy solution back to the host
+   cudaMemcpy(q_r,d_q_r, q_r_size*sizeof(double),cudaMemcpyDeviceToHost);
+   cudaMemcpy(d,d_d, d_size*sizeof(double),cudaMemcpyDeviceToHost);
 
    //Free allocated GPU memory
    cudaFree(d_info);

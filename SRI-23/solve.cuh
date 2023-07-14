@@ -371,8 +371,6 @@ void solve_Kernel(uint32_t* d_info,
   const uint32_t cost_step = states_sq+inputs_sq;
   const uint32_t dyn_step = states_sq+inp_states;
 
-  printf("sth wrong here?\n");
-
   //move everything to shared memory
   extern __shared__ T s_temp[];
   T *s_Q_R = s_temp;
