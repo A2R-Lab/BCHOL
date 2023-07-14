@@ -229,7 +229,6 @@ int main() {
                   };
 
    //Allocate memory on the GPU
-   uint32_t shared_mem = 5*2160*sizeof(double);
    double* d_Q_R;
    cudaMalloc((void**)&d_Q_R, Q_R_size*sizeof(double));
    double* d_q_r;
@@ -255,6 +254,17 @@ int main() {
    cudaMemset(d_F_lambda, 0, F_lambda_size*sizeof(double));
    cudaMemset(d_F_state, 0, F_state_size*sizeof(double));
    cudaMemset(d_F_input, 0, F_input_size*sizeof(double));
+
+   uint32_t shared_mem = 0;
+   shared_mem += Q_R_size;
+   shared_mem += q_r_size;
+   shared_mem += A_B_size;
+   shared_mem += d_size;
+   shared_mem += F_lambda_size;
+   shared_mem += F_state_size;
+   shared_mem += F_input_size;
+   shared_mem *= sizeof(double);
+   shared_mem += nhorizon * sizeof(int);
 
    //Launch CUDA kernel with block and grid dimensions
    int info[] = {nhorizon,ninputs,nstates,depth};

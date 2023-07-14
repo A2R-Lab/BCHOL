@@ -355,7 +355,6 @@ void solve_Kernel(uint32_t* d_info,
                   ){   
 
   printf("Launched Kernel\n");
-  printf("sth wrong here?\n");
   const cgrps::thread_block block = cgrps::this_thread_block();	 
   const cgrps::grid_group grid = cgrps::this_grid();
   const uint32_t block_id = blockIdx.x;
@@ -383,8 +382,7 @@ void solve_Kernel(uint32_t* d_info,
   T *s_F_lambda = s_d + nstates*nhorizon;
   T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
   T *s_F_input = s_F_state + (states_sq *nhorizon* depth);
-  T *s_nI = s_F_input + depth*inp_states*nhorizon;
-  int *s_levels = (int *)(s_nI + states_sq);
+  int *s_levels = (int*)(s_F_input + depth*inp_states*nhorizon);
 
   //move ram to shared
   for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon; i += block_dim){
@@ -403,9 +401,6 @@ void solve_Kernel(uint32_t* d_info,
     s_d[i] = d_d[i];
   }
 
-  diag_Matrix_set<T>(nstates, -1.0 , s_nI);
-
- 
   // initialize
   block.sync();
 
@@ -424,47 +419,6 @@ void solve_Kernel(uint32_t* d_info,
 
   //sync threads
   block.sync();
-
-  if(DEBUG) {
-    printf("CHECKING DATA before init");
-    for(unsigned i = 0; i < nhorizon; i++) { 
-      printf("\nd #%d: \n", i);
-      printMatrix(s_d+i*nstates,1,nstates);      
-
-      printf("\nq #%d: \n", i);
-      printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-
-      printf("\nr #%d: \n", i);
-      printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
-
-      printf("\nA #%d: \n", i);
-      printMatrix(s_A_B+(i*dyn_step),nstates,nstates);
-
-      printf("\nB #%d: \n", i);
-      printMatrix(s_A_B+(i*dyn_step+states_sq), ninputs, nstates);
-
-      printf("\nQ #%d: \n", i);
-      printMatrix(s_Q_R+(i*cost_step),nstates,nstates);
-
-      printf("\nR #%d: \n", i);
-      printMatrix(s_Q_R+(i*cost_step+states_sq), ninputs, ninputs);
-
-    }
-    for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
-      if(ind%nhorizon==0){ 
-        printf("\nLEVEL %d\n", ind/nhorizon);
-      }
-      printf("\nF_lambda #%d: \n", ind);
-      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
-
-      printf("\nF_state #%d: \n", ind);
-      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
-
-      printf("\nF_input #%d: \n", ind);
-      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
-
-    }
-  }
 
   //should solveLeaf in parallel
   for (uint32_t ind = block_id; ind < nhorizon; ind+=grid_dim) {
@@ -496,39 +450,6 @@ void solve_Kernel(uint32_t* d_info,
 
     grid.sync();
     printf("done with innerproducts level %d\n",level);
-
-    if(DEBUG) {
-       if(block_id == 0 && thread_id == 0) {
-         printf("CHECKING DATA AFTER Chol Fact");
-           for(unsigned i = 0; i < nhorizon; i++) { 
-             printf("\nd%d: \n", i);
-             printMatrix(s_d+i*nstates,1,nstates);      
-
-             printf("\nq%d: \n", i);
-             printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
-
-             printf("\nr%d: \n", i);
-             printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
-
-           }
-       }
-      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
-        if(ind%nhorizon==0){ 
-          printf("\nLEVEL %d\n", ind/nhorizon);
-        }
-        printf("\nF_lambda #%d: \n", ind);
-        printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
-
-        printf("\nF_state #%d: \n", ind);
-        printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
-
-        printf("\nF_input #%d: \n", ind);
-        printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
-
-      }
-    }
-
-
 
     //Cholesky factorization
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim) {
