@@ -582,6 +582,7 @@ template <typename T>
 
     grid.sync();
 
+    //works fine with multiple threads
     if(!DEBUG){
       if(block_id==0 && thread_id==0){
       printf("CHECKING DATA AFTER solve_chol %d", level);

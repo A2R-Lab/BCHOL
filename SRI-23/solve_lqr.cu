@@ -397,7 +397,7 @@ int main() {
 
    //Launch CUDA kernel with block and grid dimensions
    //uint32_t info[] = {nhorizon,ninputs,nstates};
-   std::uint32_t blockSize = 1;
+   std::uint32_t blockSize = 2;
    std::uint32_t gridSize = 1;
    uint32_t shared_mem = 5*2160*sizeof(float);
    const void* kernelFunc = reinterpret_cast<const void*>(solve_Kernel<float>);
@@ -439,7 +439,7 @@ cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
    cudaEventElapsedTime(&time, start, stop);
    printf("\nSolve Time:  %3.1f ms \n", time);
   
-   if(true) {
+   if(false) {
       printf("CHECK FINAL RESULTS on host\n");
         for(unsigned i = 0; i < nhorizon; i++) {
           printMatrix(d+i*nstates,nstates,1);     
