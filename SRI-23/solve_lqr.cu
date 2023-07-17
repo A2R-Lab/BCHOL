@@ -402,7 +402,7 @@ int main() {
 
    //Launch CUDA kernel with block and grid dimensions
    int info[] = {nhorizon,ninputs,nstates};
-   std::uint32_t blockSize = 1;
+   std::uint32_t blockSize = 256;
    std::uint32_t gridSize = 1;
    uint32_t shared_mem = 5*2160*sizeof(float);
    const void* kernelFunc = reinterpret_cast<const void*>(solve_Kernel<float>);
@@ -417,7 +417,15 @@ int main() {
     &d_F_input
 };
 
+float time;
+cudaEvent_t start, stop;
+cudaEventCreate(&start);
+cudaEventCreate(&stop);
+cudaEventRecord(start, 0);
+
    cudaLaunchCooperativeKernel ( kernelFunc, gridSize, blockSize, args, shared_mem );
+   
+   
    cudaDeviceSynchronize();
    printf("BYE!");
    
@@ -430,6 +438,12 @@ int main() {
    cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
    cudaMemcpy(Q_R,d_Q_R, 360*sizeof(float),cudaMemcpyDeviceToHost);
    cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
+
+
+   cudaEventRecord(stop, 0);
+   cudaEventSynchronize(stop);
+   cudaEventElapsedTime(&time, start, stop);
+printf("\nSolve Time:  %3.1f ms \n", time);
 
    //Free allocated GPU memory
    cudaFree(d_Q_R);

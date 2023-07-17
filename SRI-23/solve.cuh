@@ -361,7 +361,6 @@ template <typename T>
                     T *d_F_input
                    ){   
 
-  printf("Launched Kernel\n");
   //Ask Emre about cgrps again!
   const cgrps::thread_block block = cgrps::this_thread_block();	 
   const cgrps::grid_group grid = cgrps::this_grid();
@@ -450,7 +449,6 @@ template <typename T>
   //for some reason doesn't work when I call here  grid or block.sync()
   grid.sync();
   //block.sync();
-  printf("done with solveLeaf\n");
 
   //Solve factorization - can do in parallel
   for(uint32_t level = 0; level < depth; level++) { //change to level < depth later
@@ -471,7 +469,6 @@ template <typename T>
     //in original code syncs here before proceeding
     //change to grid.sync()?
     grid.sync();
-    printf("done with innerproducts level %d\n",level);
 
     //Cholesky factorization
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim) {
@@ -482,7 +479,6 @@ template <typename T>
     }
 
     grid.sync();
-    printf("done with chol_fact level %d\n",level);
 
     //Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth-1;   
@@ -496,7 +492,6 @@ template <typename T>
     }
 
     grid.sync();
-    printf("done with solve_chol level %d\n",level);
 
     //Shur compliments
     uint32_t num_factors = nhorizon * upper_levels;
@@ -511,7 +506,6 @@ template <typename T>
     }
     grid.sync();
         
-    printf("done with update_shur level %d\n",level);
   }
 
 
@@ -527,8 +521,6 @@ template <typename T>
       factorInnerProduct_sol(s_A_B, s_q_r, s_d, lin_ind, nstates, ninputs, nhorizon);
     }
     grid.sync();
-    printf("done with factor_inner_sol level %d\n",level);
-
     //Solve for separator variables with cached Cholesky decomposition
     for(uint32_t leaf = thread_id; leaf < numleaves; leaf +=block_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
@@ -538,8 +530,6 @@ template <typename T>
       cholSolve_InPlace(Sbar, zy, false, nstates, 1);
     }
     grid.sync();
-    printf("done with chol_solve_sol level %d\n",level);
-
     // Propagate information to solution vector
     //    y = y - F zbar
     for(uint32_t k = thread_id; k < nhorizon; k+=block_dim) {
@@ -549,10 +539,8 @@ template <typename T>
                         calc_lambda, nstates,ninputs, nhorizon);
     }
     grid.sync();
-    printf("done with update_shur_sol level %d\n",level);
   }
-  printf("done!\n");
-
+  block.sync();
   if(DEBUG) {
     if(block_id == 0 && thread_id == 0) {
       printf("CHECK FINAL RESULTS\n");
@@ -563,4 +551,5 @@ template <typename T>
         }
     }
   }
+  block.sync();
 }
