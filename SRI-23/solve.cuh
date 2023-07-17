@@ -38,7 +38,7 @@ namespace cgrps = cooperative_groups;
  * @param T *s_F_input - an array to hold the result of 
  */
 template <typename T>
-  __device__
+  __host__ __device__
   void printMatrix(T* matrix, uint32_t rows, uint32_t cols) {
   for (unsigned i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
@@ -442,10 +442,9 @@ template <typename T>
   }
   grid.sync();
 
-  //block.sync();
-
-  if(DEBUG){
-    if(block_id==0 && thread_id==0) {
+  //solve_leaf works correctly
+  if(!DEBUG){
+    if(block_id==1 && thread_id==0){
       printf("CHECKING DATA AFTER SOLVE_LEAF");
       for(unsigned i = 0; i < nhorizon; i++) { 
         printf("\nd%d: \n", i);
@@ -458,7 +457,6 @@ template <typename T>
         printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
 
       }
-    }
     for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
       if(ind%nhorizon==0){ 
         printf("\nLEVEL %d\n", ind/nhorizon);
@@ -473,11 +471,12 @@ template <typename T>
       printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
 
     }
+    }
   }
   block.sync();
   //probably write from shared to ram and back?
 
-  //Solve factorization - can do in parallel
+  //Solve factorization - can do in parallel - use block_id?
   for(uint32_t level = 0; level < depth; level++) { //change to level < depth later
     uint32_t numleaves = pow(2.0, (depth-level-1));
 
@@ -493,11 +492,42 @@ template <typename T>
       factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
 
     }
-
+    
     //in original code syncs here before proceeding
-    //change to grid.sync()?
     grid.sync();
 
+  //works for 2 threads
+  if(!DEBUG){
+    if(block_id==0 && thread_id==0){
+      printf("CHECKING DATA AFTER calc_inner %d", level);
+    for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+      if(ind%nhorizon==0){ 
+        printf("\nLEVEL %d\n", ind/nhorizon);
+      }
+      printf("\nF_lambda #%d: \n", ind);
+      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_state #%d: \n", ind);
+      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_input #%d: \n", ind);
+      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+    }
+     for(unsigned i = 0; i < nhorizon; i++) { 
+        printf("\nd%d: \n", i);
+        printMatrix(s_d+i*nstates,1,nstates);      
+
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+      }
+    }
+  }
+  
     //Cholesky factorization
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim) {
       uint32_t index = pow(2.0, level) *(2*leaf+1)-1;
@@ -508,6 +538,37 @@ template <typename T>
 
     grid.sync();
 
+    if(!DEBUG){
+      if(block_id==0 && thread_id==0){
+      printf("CHECKING DATA AFTER chol_solve %d", level);
+      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+      if(ind%nhorizon==0){ 
+        printf("\nLEVEL %d\n", ind/nhorizon);
+      }
+      printf("\nF_lambda #%d: \n", ind);
+      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_state #%d: \n", ind);
+      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_input #%d: \n", ind);
+      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+      }
+     for(unsigned i = 0; i < nhorizon; i++) { 
+        printf("\nd%d: \n", i);
+        printMatrix(s_d+i*nstates,1,nstates);      
+
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+      }
+      }
+    }
+  
     //Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth-1;   
     uint32_t num_solves = numleaves*upper_levels;
@@ -521,6 +582,36 @@ template <typename T>
 
     grid.sync();
 
+    if(!DEBUG){
+      if(block_id==0 && thread_id==0){
+      printf("CHECKING DATA AFTER solve_chol %d", level);
+      for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+      if(ind%nhorizon==0){ 
+        printf("\nLEVEL %d\n", ind/nhorizon);
+      }
+      printf("\nF_lambda #%d: \n", ind);
+      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_state #%d: \n", ind);
+      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_input #%d: \n", ind);
+      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+      }
+     for(unsigned i = 0; i < nhorizon; i++) { 
+        printf("\nd%d: \n", i);
+        printMatrix(s_d+i*nstates,1,nstates);      
+
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+      }
+    }
+  }
     //Shur compliments
     uint32_t num_factors = nhorizon * upper_levels;
     for (uint32_t i = thread_id ; i < num_factors; i+=block_dim) {
@@ -533,9 +624,41 @@ template <typename T>
                         calc_lambda, nstates,  ninputs, nhorizon);
     }
     grid.sync();
-        
-  }
 
+
+//doesn't yeld the same results!
+  if(!DEBUG){
+    if(block_id==0 && thread_id==0){
+      printf("CHECKING DATA AFTER update_Schur %d", level);
+    for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+      if(ind%nhorizon==0){ 
+        printf("\nLEVEL %d\n", ind/nhorizon);
+      }
+      printf("\nF_lambda #%d: \n", ind);
+      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_state #%d: \n", ind);
+      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_input #%d: \n", ind);
+      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+    }
+     for(unsigned i = 0; i < nhorizon; i++) { 
+        printf("\nd%d: \n", i);
+        printMatrix(s_d+i*nstates,1,nstates);      
+
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+      }
+    }
+  }
+    grid.sync();
+  }
 
   //solve for solution vector using the cached factorization
   for (uint32_t level = 0; level < depth; ++level) {
@@ -569,6 +692,15 @@ template <typename T>
     grid.sync();
   }
   block.sync();
+
+  //move shared to ram of soln vector
+  for(unsigned i = thread_id; i < (nstates+ninputs)*nhorizon; i +=block_dim) {
+    d_q_r[i] = s_q_r[i];
+  }
+  for(unsigned i = thread_id; i < nhorizon*nstates; i += block_dim) {
+    d_d[i] = s_d[i];
+  }
+
   if(DEBUG) {
     if(block_id == 0 && thread_id == 0) {
       printf("CHECK FINAL RESULTS\n");

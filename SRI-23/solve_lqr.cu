@@ -417,27 +417,36 @@ cudaEventCreate(&start);
 cudaEventCreate(&stop);
 cudaEventRecord(start, 0);
 
-   cudaLaunchCooperativeKernel ( kernelFunc, gridSize, blockSize, args, shared_mem );
+cudaLaunchCooperativeKernel ( kernelFunc, gridSize, blockSize, args, shared_mem );
    
    
-   cudaDeviceSynchronize();
-   printf("BYE!");
+cudaDeviceSynchronize();
+printf("done with cuda!\n");
    
-   //here can either launch one Kernel and call all functions within it and use blocks (cprgs)
-   //or can potentially launch a kernel per each big function (solve_leaf etc)
+//here can either launch one Kernel and call all functions within it and use blocks (cprgs)
+//or can potentially launch a kernel per each big function (solve_leaf etc)
    
    
    //Copy back to the host
-   cudaMemcpy(q_r,d_q_r, 72*sizeof(float),cudaMemcpyDeviceToHost);
-   cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
-   cudaMemcpy(Q_R,d_Q_R, 360*sizeof(float),cudaMemcpyDeviceToHost);
-   cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(q_r,d_q_r, 72*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(Q_R,d_Q_R, 360*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
 
 
    cudaEventRecord(stop, 0);
    cudaEventSynchronize(stop);
    cudaEventElapsedTime(&time, start, stop);
-printf("\nSolve Time:  %3.1f ms \n", time);
+   printf("\nSolve Time:  %3.1f ms \n", time);
+  
+   if(true) {
+      printf("CHECK FINAL RESULTS on host\n");
+        for(unsigned i = 0; i < nhorizon; i++) {
+          printMatrix(d+i*nstates,nstates,1);     
+          printMatrix(q_r+(i*(ninputs+nstates)),nstates,1);
+          printMatrix(q_r+(i*(ninputs+nstates)+nstates),ninputs,1);
+        }
+    }
 
    //Free allocated GPU memory
    cudaFree(d_Q_R);
