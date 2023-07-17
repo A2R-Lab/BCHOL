@@ -12,10 +12,9 @@ int main() {
   printf("Run Test\n");
 //Info about LQR problem
 
-  const uint32_t nhorizon = 8;
-  const uint32_t nstates = 6;
-  const uint32_t ninputs = 3; 
-  const uint32_t depth = 2; 
+  uint32_t nhorizon = 8;
+  uint32_t nstates = 6;
+  uint32_t ninputs = 3; 
   
   //float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; //instead put it as d0
   float Q_R[360] = { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q0
@@ -219,6 +218,7 @@ int main() {
                  10.5,10.5,10.5,10.5,10.5, 10.5 //d6
                };
   
+  /*
    float soln[117] = { 118.50447730549635,
       172.84569760649603,
       273.5288554044134,
@@ -336,35 +336,29 @@ int main() {
       2.4151722488333296,
       -10.380933150923628,
       -23.433992381590347
-      }; //soln vector
+      }; */
 
+
+    
+    //DO WE NEED IT?
     /*
    //Fact_Lambda[nstates*nstates*nhorizon*depth]
-   float Fact_lambda[36*8*3]; 
-   float Fact_state[36*8*3];
-   for(std::unit32_t n = 0; n < 864; n++){
-      Fact_lambda[n] = 0;
-      Fact_state[n] = 0;
+   float F_lambda[36*8*3]; 
+   float F_state[36*8*3];
+   for(uint32_t n = 0; n < 864; n++){
+      F_lambda[n] = 0;
+      F_state[n] = 0;
    }
   
    //Fact_Input[nstates*ninputs*nhorizon*depth]  
-   float Fact_input[18*8*3];
-   for(std::unit32_t n = 0; n < 864; n++) {
-      Fact_input[n] = 0;
+   float F_input[18*8*3];
+   for(uint32_t n = 0; n < 864; n++) {
+      F_input[n] = 0;
    }
-
 */
 
-  
-
-      
-   //when using for soln_vector need to negate q_r and d_d
-   
    
    //Allocate memory on the GPU for x0,Q_R,q_r, A_B, d, 
-   /*
-   float* d_x0;
-   cudaMalloc((void**)&d_x0, 6*sizeof(float));*/
 
    float* d_Q_R;
    cudaMalloc((void**)&d_Q_R, 360*sizeof(float));
@@ -378,6 +372,7 @@ int main() {
    float* d_d;
    cudaMalloc((void**)&d_d, 48*sizeof(float));
    printf("Allocated memory\n");
+
 
    float* d_F_lambda;
    cudaMalloc((void**)&d_F_lambda, 36*8*3*sizeof(float));
@@ -394,27 +389,26 @@ int main() {
    cudaMemcpy(d_q_r, q_r, 72*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_A_B, A_B, 432*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_d, d, 48*sizeof(float), cudaMemcpyHostToDevice);
-/*
+   /*
    cudaMemcpy(d_F_lambda, F_lambda, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_F_state, F_state, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_F_input, F_input, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
-*/
+   */
 
    //Launch CUDA kernel with block and grid dimensions
-   int info[] = {nhorizon,ninputs,nstates};
-   std::uint32_t blockSize = 256;
+   //uint32_t info[] = {nhorizon,ninputs,nstates};
+   std::uint32_t blockSize = 1;
    std::uint32_t gridSize = 1;
    uint32_t shared_mem = 5*2160*sizeof(float);
    const void* kernelFunc = reinterpret_cast<const void*>(solve_Kernel<float>);
    void* args[] = {             // prepare the kernel arguments
-    info,
+    &nhorizon,
+    &ninputs,
+    &nstates,
     &d_Q_R,
     &d_q_r,
     &d_A_B,
-    &d_d,
-    &d_F_lambda,
-    &d_F_state,
-    &d_F_input
+    &d_d
 };
 
 float time;

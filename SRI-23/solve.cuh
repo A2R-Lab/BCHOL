@@ -351,17 +351,16 @@ void initializeBSTLevels(int nhorizon, int* levels) {
 }
 template <typename T>
   __global__
-  void solve_Kernel(uint32_t* info,
+  void solve_Kernel(uint32_t nhorizon,
+                    uint32_t ninputs,
+                    uint32_t nstates,
                     T *d_Q_R,
                     T *d_q_r,
                     T *d_A_B,
-                    T *d_d,
-                    T *d_F_lambda,
-                    T *d_F_state,
-                    T *d_F_input
+                    T *d_d
                    ){   
 
-  //Ask Emre about cgrps again!
+  //block/threads init
   const cgrps::thread_block block = cgrps::this_thread_block();	 
   const cgrps::grid_group grid = cgrps::this_grid();
   const uint32_t block_id = blockIdx.x;
@@ -369,23 +368,12 @@ template <typename T>
   const uint32_t thread_id = threadIdx.x;
   const uint32_t grid_dim=gridDim.x;
 
-  //const for KKT matrix
-  /*
-  int nhorizon = info[0];
-      if(DEBUG)
-    printf("2.0!\n");
-  int ninputs = info[1];
-  int nstates = info[2];*/
-  int nhorizon =8;
-  int ninputs = 3;
-  int nstates = 6;
-
+  //KKT constants
   const uint32_t states_sq = nstates*nstates;
   const uint32_t inputs_sq = ninputs*ninputs;
   const uint32_t inp_states = ninputs*nstates;
   const uint32_t cost_step = states_sq+inputs_sq;
   const uint32_t dyn_step = states_sq+inp_states;
-
   const uint32_t depth = log2f(nhorizon);
 
   //move everything to shared memory
@@ -400,42 +388,49 @@ template <typename T>
   T *s_nI = s_F_input + depth*inp_states*nhorizon;
   int *s_levels = (int *)(s_nI + states_sq);
 
+
+//initialize F to 0s
+
+  for(unsigned i = thread_id; i < (states_sq)*nhorizon*depth; i+=block_dim)
+  {
+    s_F_lambda[i] = 0;
+    s_F_state[i] = 0;
+  }
+  for(unsigned i = thread_id; i < (inp_states)*nhorizon*depth; i+=block_dim)
+  {
+    s_F_input[i] = 0;
+  }
+
+
   //move ram to shared
   for(unsigned i = thread_id; i < (states_sq+inputs_sq)*nhorizon; i += block_dim){
     s_Q_R[i] = d_Q_R[i];
   }
+  block.sync();
 
+    //negate q_r,d vectors (using threads)
   for(unsigned i = thread_id; i < (nstates+ninputs)*nhorizon; i +=block_dim) {
-    s_q_r[i] = d_q_r[i];
+    s_q_r[i] = d_q_r[i]*-1;
   }
+  block.sync();
 
   for(unsigned i = thread_id; i < (states_sq+inp_states)*nhorizon; i +=block_dim) {
     s_A_B[i] = d_A_B[i]; 
   }
-  
+  block.sync();
+ 
   for(unsigned i = thread_id; i < nhorizon*nstates; i += block_dim) {
-    s_d[i] = d_d[i];
+    s_d[i] = d_d[i]*-1;
   }
+  block.sync();
 
   diag_Matrix_set<float>(nstates, -1.0 , s_nI);
-
- 
   // initialize
   block.sync();
 
   if(thread_id == 0){
     initializeBSTLevels(nhorizon, s_levels);
   }
-
-  //negate q_r,d vectors (using threads)
-  for (uint32_t ind = thread_id; ind < (ninputs+nstates)*nhorizon; ind+=block_dim){
-    s_q_r[ind] *= -1;
-  }  
-  
-  for (uint32_t ind = thread_id; ind < (nstates)*nhorizon; ind+=block_dim){
-    s_d[ind] *= -1;
-  }
-
   //sync threads
   block.sync();
 
@@ -445,10 +440,42 @@ template <typename T>
                     s_Q_R, s_q_r, s_A_B,s_d, 
                     s_F_lambda, s_F_state, s_F_input);
   }
-
-  //for some reason doesn't work when I call here  grid or block.sync()
   grid.sync();
+
   //block.sync();
+
+  if(DEBUG){
+    if(block_id==0 && thread_id==0) {
+      printf("CHECKING DATA AFTER SOLVE_LEAF");
+      for(unsigned i = 0; i < nhorizon; i++) { 
+        printf("\nd%d: \n", i);
+        printMatrix(s_d+i*nstates,1,nstates);      
+
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)),1,nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r+(i*(ninputs+nstates)+nstates),1,ninputs);
+
+      }
+    }
+    for(uint32_t ind = 0; ind < nhorizon * depth ;  ind++) {
+      if(ind%nhorizon==0){ 
+        printf("\nLEVEL %d\n", ind/nhorizon);
+      }
+      printf("\nF_lambda #%d: \n", ind);
+      printMatrix(s_F_lambda+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_state #%d: \n", ind);
+      printMatrix(s_F_state+(ind*states_sq),nstates,nstates);
+
+      printf("\nF_input #%d: \n", ind);
+      printMatrix(s_F_input+ind*inp_states, ninputs, nstates);
+
+    }
+  }
+  block.sync();
+  //probably write from shared to ram and back?
 
   //Solve factorization - can do in parallel
   for(uint32_t level = 0; level < depth; level++) { //change to level < depth later
@@ -464,6 +491,7 @@ template <typename T>
       uint32_t upper_level = level + (ind % cur_depth);
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+
     }
 
     //in original code syncs here before proceeding
