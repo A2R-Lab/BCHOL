@@ -615,7 +615,7 @@ template <typename T>
   }
     //Shur compliments
     uint32_t num_factors = nhorizon * upper_levels;
-    for (uint32_t i = thread_id ; i < num_factors; i+=block_dim) {
+    for (uint32_t i = block_id ; i < num_factors; i+=grid_dim) {
       int k = i/upper_levels;
       uint32_t upper_level = level+1+( i %upper_levels);
 
@@ -627,7 +627,7 @@ template <typename T>
     grid.sync();
 
 
-//doesn't yeld the same results!
+//doesn't yeld the same results! - i think it's fixed now, but not sure!
   if(!DEBUG){
     if(block_id==0 && thread_id==0){
       printf("CHECKING DATA AFTER update_Schur %d", level);
@@ -667,14 +667,14 @@ template <typename T>
 
     //calculate inner products with rhs, with factors computed above
     //in parallel
-    for(uint32_t leaf = thread_id; leaf < numleaves; leaf+=block_dim) {
+    for(uint32_t leaf = block_id; leaf < numleaves; leaf+=grid_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       // Calculate z = d - F'b1 - F2'b2
       factorInnerProduct_sol(s_A_B, s_q_r, s_d, lin_ind, nstates, ninputs, nhorizon);
     }
     grid.sync();
     //Solve for separator variables with cached Cholesky decomposition
-    for(uint32_t leaf = thread_id; leaf < numleaves; leaf +=block_dim) {
+    for(uint32_t leaf = block_id; leaf < numleaves; leaf+=grid_dim) {
       uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
       float* Sbar = s_F_lambda + (level*nhorizon+lin_ind+1)*(nstates*nstates);
       float* zy = s_d + (lin_ind+1)*nstates;
@@ -684,7 +684,7 @@ template <typename T>
     grid.sync();
     // Propagate information to solution vector
     //    y = y - F zbar
-    for(uint32_t k = thread_id; k < nhorizon; k+=block_dim) {
+    for(uint32_t k = block_id; k < nhorizon; k+=grid_dim) {
       int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
       bool calc_lambda = shouldCalcLambda(index, k,nhorizon, s_levels); // nhorizon, s_levels
       updateShur_sol<float>(s_F_state,s_F_input,s_F_lambda, s_q_r, s_d, index, k , level,
