@@ -341,7 +341,7 @@ int main() {
 
     
     //DO WE NEED IT?
-    /*
+    
    //Fact_Lambda[nstates*nstates*nhorizon*depth]
    float F_lambda[36*8*3]; 
    float F_state[36*8*3];
@@ -352,10 +352,10 @@ int main() {
   
    //Fact_Input[nstates*ninputs*nhorizon*depth]  
    float F_input[18*8*3];
-   for(uint32_t n = 0; n < 864; n++) {
+   for(uint32_t n = 0; n < 18*8*3; n++) {
       F_input[n] = 0;
    }
-*/
+
 
    
    //Allocate memory on the GPU for x0,Q_R,q_r, A_B, d, 
@@ -389,11 +389,11 @@ int main() {
    cudaMemcpy(d_q_r, q_r, 72*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_A_B, A_B, 432*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_d, d, 48*sizeof(float), cudaMemcpyHostToDevice);
-   /*
+   
    cudaMemcpy(d_F_lambda, F_lambda, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
    cudaMemcpy(d_F_state, F_state, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_F_input, F_input, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
-   */
+   cudaMemcpy(d_F_input, F_input, 18*8*3*sizeof(float), cudaMemcpyHostToDevice);
+   
 
    //Launch CUDA kernel with block and grid dimensions
    //uint32_t info[] = {nhorizon,ninputs,nstates};
@@ -408,7 +408,10 @@ int main() {
     &d_Q_R,
     &d_q_r,
     &d_A_B,
-    &d_d
+    &d_d,
+    &d_F_lambda,
+    &d_F_state,
+    &d_F_input
 };
 
 float time;
@@ -427,11 +430,15 @@ printf("done with cuda!\n");
 //or can potentially launch a kernel per each big function (solve_leaf etc)
    
    
-   //Copy back to the host
+//Copy back to the host
 cudaMemcpy(q_r,d_q_r, 72*sizeof(float),cudaMemcpyDeviceToHost);
 cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
 cudaMemcpy(Q_R,d_Q_R, 360*sizeof(float),cudaMemcpyDeviceToHost);
 cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(F_lambda,d_F_lambda, 36*8*3*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(F_state,d_F_state,36*8*3*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(F_input,d_F_input, 18*8*3*sizeof(float),cudaMemcpyDeviceToHost);
+
 
 
    cudaEventRecord(stop, 0);
@@ -453,4 +460,7 @@ cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
    cudaFree(d_q_r);
    cudaFree(d_A_B);
    cudaFree(d_d);
+   cudaFree(d_F_lambda);
+   cudaFree(d_F_state);
+   cudaFree(d_F_input);
 }

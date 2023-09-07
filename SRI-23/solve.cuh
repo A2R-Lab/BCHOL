@@ -364,6 +364,7 @@ __device__ void initializeBSTLevels(int nhorizon, int *levels)
     }
   }
 }
+
 template <typename T>
 __global__ void solve_Kernel(uint32_t nhorizon,
                              uint32_t ninputs,
@@ -371,7 +372,11 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                              T *d_Q_R,
                              T *d_q_r,
                              T *d_A_B,
-                             T *d_d)
+                             T *d_d,
+                             T *d_F_lambda,
+                             T *d_F_state,
+                             T *d_F_input)
+                        
 {
 
   // block/threads init
@@ -390,7 +395,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   const uint32_t dyn_step = states_sq + inp_states;
   const uint32_t depth = log2f(nhorizon);
 
-  // move everything to shared memory
+  // initialize shared memory
   extern __shared__ T s_temp[];
   T *s_Q_R = s_temp;
   T *s_q_r = s_Q_R + (cost_step)*nhorizon;
@@ -660,7 +665,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     }
     grid.sync();
 
-    // doesn't yeld the same results! - i think it's fixed now, but not sure!
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
