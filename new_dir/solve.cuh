@@ -408,23 +408,53 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   T *s_nI = s_F_input + depth * inp_states * nhorizon;
   int *s_levels = (int *)(s_nI + states_sq);
 
+  // initialize F to 0s
+
+  for (unsigned i = thread_id; i < (states_sq)*nhorizon * depth; i += block_dim)
+  {
+    s_F_lambda[i] = 0;
+    s_F_state[i] = 0;
+  }
+  for (unsigned i = thread_id; i < (inp_states)*nhorizon * depth; i += block_dim)
+  {
+    s_F_input[i] = 0;
+  }
+
   // move ram to shared
-  glass::copy<float>(cost_step*nhorizon, d_Q_R, s_Q_R); 
-  glass::copy<float>((nstates+ninputs)*nhorizon, -1.0, d_q_r,s_q_r);
-  glass::copy<float>((states_sq+inp_states)*nhorizon, d_A_B, s_A_B); 
-  glass::copy<float>(nstates*nhorizon,-1.0, d_d,s_d);
-  glass::copy<float>(states_sq*nhorizon, d_F_lambda,s_F_lambda);
-  glass::copy<float>(states_sq*nhorizon,d_F_state,s_F_state);
-  glass::copy<float>(inp_states*nhorizon,d_F_input,s_F_input);
-  block.sync(); //block or grid?
+  for (unsigned i = thread_id; i < (states_sq + inputs_sq) * nhorizon; i += block_dim)
+  {
+    s_Q_R[i] = d_Q_R[i];
+  }
+  block.sync();
+
+  // negate q_r,d vectors (using threads)
+  for (unsigned i = thread_id; i < (nstates + ninputs) * nhorizon; i += block_dim)
+  {
+    s_q_r[i] = d_q_r[i] * -1;
+  }
+  block.sync();
+
+  for (unsigned i = thread_id; i < (states_sq + inp_states) * nhorizon; i += block_dim)
+  {
+    s_A_B[i] = d_A_B[i];
+  }
+  block.sync();
+
+  for (unsigned i = thread_id; i < nhorizon * nstates; i += block_dim)
+  {
+    s_d[i] = d_d[i] * -1;
+  }
+  block.sync();
 
   diag_Matrix_set<float>(nstates, -1.0, s_nI);
+  // initialize
   block.sync();
 
   if (thread_id == 0)
   {
     initializeBSTLevels(nhorizon, s_levels);
   }
+  // sync threads
   block.sync();
 
   // should solveLeaf in parallel
@@ -433,17 +463,45 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                      s_Q_R, s_q_r, s_A_B, s_d,
                      s_F_lambda, s_F_state, s_F_input);
-
-
-    //copy result to ram need to copy the sol vector
-    
-    glass::copy(nhorizon, s_d+(ind*nstates),d_d+(ind*nstates));
-    glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
-    //also need to copy F_lambda,F_state,F_input of cur index and prev level  
-
   }
   grid.sync();
 
+  // solve_leaf works correctly
+  if (!DEBUG)
+  {
+    if (block_id == 1 && thread_id == 0)
+    {
+      printf("CHECKING DATA AFTER SOLVE_LEAF");
+      for (unsigned i = 0; i < nhorizon; i++)
+      {
+        printf("\nd%d: \n", i);
+        printMatrix(s_d + i * nstates, 1, nstates);
+
+        printf("\nq%d: \n", i);
+        printMatrix(s_q_r + (i * (ninputs + nstates)), 1, nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(s_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+      }
+      for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
+      {
+        if (ind % nhorizon == 0)
+        {
+          printf("\nLEVEL %d\n", ind / nhorizon);
+        }
+        printf("\nF_lambda #%d: \n", ind);
+        printMatrix(s_F_lambda + (ind * states_sq), nstates, nstates);
+
+        printf("\nF_state #%d: \n", ind);
+        printMatrix(s_F_state + (ind * states_sq), nstates, nstates);
+
+        printf("\nF_input #%d: \n", ind);
+        printMatrix(s_F_input + ind * inp_states, ninputs, nstates);
+      }
+    }
+  }
+  block.sync();
+  // probably write from shared to ram and back?
 
   // Solve factorization - can do in parallel - use block_id?
   for (uint32_t level = 0; level < depth; level++)
@@ -461,7 +519,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       uint32_t upper_level = level + (ind % cur_depth);
       uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
       factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
-      glass::copy(nstates*nstates, s_F_lambda+((lin_ind+1+nhorizon*upper_level)*nstates*nstates),d_F_lambda+((lin_ind+1+nhorizon*upper_level)*nstates*nstates));
     }
 
     // in original code syncs here before proceeding
@@ -657,7 +714,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
       // Calculate z = d - F'b1 - F2'b2
       factorInnerProduct_sol(s_A_B, s_q_r, s_d, lin_ind, nstates, ninputs, nhorizon);
-      glass::copy(nhorizon, s_d+((lin_ind+1)*nstates),d_d+((lin_ind+1)*nstates));
     }
     grid.sync();
     // Solve for separator variables with cached Cholesky decomposition

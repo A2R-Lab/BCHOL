@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
-#include "./solve.cuh"
+#include "solve.cuh"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 //#include "blockassert.cuh" //need to write!
@@ -343,16 +343,16 @@ int main() {
     //DO WE NEED IT?
     
    //Fact_Lambda[nstates*nstates*nhorizon*depth]
-   float F_lambda[nstates*nstates*nhorizon*3]; 
-   float F_state[nstates*nstates*nhorizon*3];
-   for(uint32_t n = 0; n < nstates*nstates*nhorizon*3; n++){
+   float F_lambda[36*8*3]; 
+   float F_state[36*8*3];
+   for(uint32_t n = 0; n < 864; n++){
       F_lambda[n] = 0;
       F_state[n] = 0;
    }
   
    //Fact_Input[nstates*ninputs*nhorizon*depth]  
-   float F_input[ninputs*nstates*nhorizon*3];
-   for(uint32_t n = 0; n < ninputs*nstates*nhorizon; n++) {
+   float F_input[18*8*3];
+   for(uint32_t n = 0; n < 18*8*3; n++) {
       F_input[n] = 0;
    }
 
