@@ -6,6 +6,11 @@
 #include <cooperative_groups.h>
 //#include "blockassert.cuh" //need to write!
 
+/*
+__host__ 
+int get_grid get_gridSize(uint32_t nhorizon, uint32_t depth) {
+  int num_blocks = nhorizon*depth;
+}*/
 
 __host__
 int main() {
@@ -15,6 +20,7 @@ int main() {
   uint32_t nhorizon = 8;
   uint32_t nstates = 6;
   uint32_t ninputs = 3; 
+  uint32_t depth = log2f(nhorizon);
   
   //float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; //instead put it as d0
   float Q_R[360] = { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q0
@@ -397,7 +403,10 @@ int main() {
 
    //Launch CUDA kernel with block and grid dimensions
    //uint32_t info[] = {nhorizon,ninputs,nstates};
+   
    std::uint32_t blockSize = 256;
+   // Make!
+   //std::uint32_t gridSize = nhorizon*depth;
    std::uint32_t gridSize = 1;
    uint32_t shared_mem = 5*2160*sizeof(float);
    const void* kernelFunc = reinterpret_cast<const void*>(solve_Kernel<float>);

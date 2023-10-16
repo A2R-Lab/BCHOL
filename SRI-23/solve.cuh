@@ -421,6 +421,8 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   diag_Matrix_set<float>(nstates, -1.0, s_nI);
   block.sync();
 
+
+  //do we need thread_id==0?
   if (thread_id == 0)
   {
     initializeBSTLevels(nhorizon, s_levels);
@@ -441,9 +443,56 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
     //also need to copy F_lambda,F_state,F_input of cur index and prev level  
 
+
+    glass::copy<float>(nstates*nstates*(ind+nhorizon), s_F_lambda,d_F_lambda);
+    glass::copy<float>(nstates*nstates*(ind+nhorizon),s_F_state,d_F_state);
+    glass::copy<float>(ninputs*nstates*(ind+nhorizon),s_F_input,d_F_input);
+
+//    glass::copy(nstates*nstates, s_F_state + ((ind + nhorizon * s_levels[ind]) * nstates * nstates), d_F_state + ((ind + nhorizon * s_levels[ind]) * nstates * nstates)); 
+  //  glass::copy(ninputs*nstates, s_F_input + ((ind + nhorizon * s_levels[ind]) * nstates * nstates), d_F_input + ((ind + nhorizon * s_levels[ind]) * nstates * nstates));
+    //glass::copy(nstates*nstates, s_F_lambda + ((ind + nhorizon * s_levels[ind]) * ninputs * nstates), d_F_lambda + (ind + nhorizon * s_levels[ind]) * ninputs * nstates);
+    //glass::copy<float>(nstates*nstates*nhorizon, s_F_lambda,d_F_lambda);
+    //glass::copy<float>(nstates*nstates*nhorizon,s_F_state,d_F_state);
+    //glass::copy<float>(ninputs*nstates*nhorizon,s_F_input,d_F_input);
+    
   }
+
+  
   grid.sync();
 
+    if (DEBUG)
+    {
+      if (block_id == 0 && thread_id == 0)
+      {
+        printf("CHECKING DATA AFTER SOLVE LEAF");
+        for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
+        {
+          if (ind % nhorizon == 0)
+          {
+            printf("\nLEVEL %d\n", ind / nhorizon);
+          }
+          printf("\nF_lambda #%d: \n", ind);
+          printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
+
+          printf("\nF_state #%d: \n", ind);
+          printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
+
+          printf("\nF_input #%d: \n", ind);
+          printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
+        }
+        for (unsigned i = 0; i < nhorizon; i++)
+        {
+          printf("\nd%d: \n", i);
+          printMatrix(d_d + i * nstates, 1, nstates);
+
+          printf("\nq%d: \n", i);
+          printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
+
+          printf("\nr%d: \n", i);
+          printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+        }
+      }
+    }
 
   // Solve factorization - can do in parallel - use block_id?
   for (uint32_t level = 0; level < depth; level++)
