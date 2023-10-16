@@ -2,7 +2,9 @@
 1. Launch Kernel with grid_dim = blocks*depth
 2. initalize shared_memory
 3. move ram to shared : NEED block/grid.sync?
-4.
+4. After solve leaf need to copy to RAM :
+    F_state,F_input[nhorizon in appropriate level]
+    
 
 
 for debugginh 
