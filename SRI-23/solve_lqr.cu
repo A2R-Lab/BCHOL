@@ -404,10 +404,8 @@ int main() {
    //Launch CUDA kernel with block and grid dimensions
    //uint32_t info[] = {nhorizon,ninputs,nstates};
    
-   std::uint32_t blockSize = 256;
-   // Make!
-   //std::uint32_t gridSize = nhorizon*depth;
-   std::uint32_t gridSize = 1;
+ std::uint32_t blockSize = 256;
+   std::uint32_t gridSize = 8;
    uint32_t shared_mem = 5*2160*sizeof(float);
    const void* kernelFunc = reinterpret_cast<const void*>(solve_Kernel<float>);
    void* args[] = {             // prepare the kernel arguments

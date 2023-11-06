@@ -1,13 +1,20 @@
 /*
-1. Launch Kernel with grid_dim = blocks*depth
+1. Launch Kernel with grid_dim = blocks
 2. initalize shared_memory
 3. move ram to shared : NEED block/grid.sync?
 4. After solve leaf need to copy to RAM :
-    F_state,F_input[nhorizon in appropriate level]
-    
+    F_state,F_input[timestep n in  level[n]]
+    F_state[n+1 in  level[n] ]
+    AND q[n] and r[n]
+5. Copy Back to Shared
+6. For
 
 
-for debugginh 
+
+for debugging
+
+HAVE BETTER DATA STRUCTURE!
+different arrays for q/r/Q/R/A/B?? An array for a block?
  if (DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
