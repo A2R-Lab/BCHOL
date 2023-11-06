@@ -427,6 +427,40 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   }
   block.sync();
 
+   if (!DEBUG)
+    {
+      if (block_id == 0 && thread_id == 0)
+      {
+        printf("CHECKING DATA BEFORE SOLVE LEAF");
+        for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
+        {
+          if (ind % nhorizon == 0)
+          {
+            printf("\nLEVEL %d\n", ind / nhorizon);
+          }
+          printf("\nF_lambda #%d: \n", ind);
+          printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
+
+          printf("\nF_state #%d: \n", ind);
+          printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
+
+          printf("\nF_input #%d: \n", ind);
+          printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
+        }
+        for (unsigned i = 0; i < nhorizon; i++)
+        {
+          printf("\nd%d: \n", i);
+          printMatrix(d_d + i * nstates, 1, nstates);
+
+          printf("\nq%d: \n", i);
+          printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
+
+          printf("\nr%d: \n", i);
+          printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+        }
+      }
+    }
+
   // should solveLeaf in parallel
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
@@ -434,16 +468,83 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                      s_Q_R, s_q_r, s_A_B, s_d,
                      s_F_lambda, s_F_state, s_F_input);
 
-
+    int cur_level = s_levels[ind];
+    int prev_level = s_levels[ind];
     //copy result to ram need to copy the sol vector
     
     glass::copy(nhorizon, s_d+(ind*nstates),d_d+(ind*nstates));
     glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
-    //also need to copy F_lambda,F_state,F_input of cur index and prev level  
-
+    //copy Q_R
+    
+    glass::copy(states_sq+inputs_sq,s_Q_R+(ind*(states_sq+inputs_sq)),
+                                    d_Q_R+(ind*(states_sq+inputs_sq)));
+    
+    if(ind==0){
+      //copy F_lambda for ind==0 &F_input
+      glass::copy(states_sq,s_F_lambda,d_F_lambda);
+      glass::copy(inp_states,s_F_input,d_F_input);
+      }
+    
+    else{
+      /*
+      // otherwise copy F-state prev
+      glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq),
+                              d_F_lambda+(prev_level*nhorizon+ind)*states_sq);
+      
+      if(ind<nhorizon-1) {
+        //copy cur_F_state + cur_F_input
+        glass::copy(states_sq,s_F_lambda+(states_sq*(cur_level*nhorizon+ind)),
+                              d_F_input+(states_sq*(cur_level*nhorizon+ind)));
+        glass::copy(inp_states,s_F_input+(inp_states*(cur_level*nhorizon+ind)),
+                               d_F_input+(inp_states*(cur_level*nhorizon+ind)));
+      }*/
+    }
   }
   grid.sync();
 
+ 
+  //update the shared ONLY of your neighbours in the future, now everything
+  /*
+  glass::copy<float>((nstates+ninputs)*nhorizon,d_q_r,s_q_r);
+  glass::copy<float>(nstates*nhorizon, d_d,s_d);
+  glass::copy<float>(states_sq*nhorizon, d_F_lambda,s_F_lambda);
+  glass::copy<float>(states_sq*nhorizon,d_F_state,s_F_state);
+  glass::copy<float>(inp_states*nhorizon,d_F_input,s_F_input);
+  grid.sync();
+  */
+  if(DEBUG)
+    {
+      if (block_id == 0 && thread_id == 0)
+      {
+        printf("CHECKING DATA AFTER SOLVE LEAF");
+        for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
+        {
+          if (ind % nhorizon == 0)
+          {
+            printf("\nLEVEL %d\n", ind / nhorizon);
+          }
+          printf("\nF_lambda #%d: \n", ind);
+          printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
+
+          printf("\nF_state #%d: \n", ind);
+          printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
+
+          printf("\nF_input #%d: \n", ind);
+          printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
+        }
+        for (unsigned i = 0; i < nhorizon; i++)
+        {
+          printf("\nd%d: \n", i);
+          printMatrix(d_d + i * nstates, 1, nstates);
+
+          printf("\nq%d: \n", i);
+          printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
+
+          printf("\nr%d: \n", i);
+          printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+        }
+      }
+    }
 
   // Solve factorization - can do in parallel - use block_id?
   for (uint32_t level = 0; level < depth; level++)
@@ -467,7 +568,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     grid.sync();
 
     // works for 2 threads
-    if (!DEBUG)
+    if (DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
       {
