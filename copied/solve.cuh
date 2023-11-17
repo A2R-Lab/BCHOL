@@ -489,7 +489,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       /*
       // otherwise copy F-state prev
       glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq),
-                              d_F_lambda+(prev_level*nhorizon+ind)*states_sq);
+                              d_F_lambda+((prev_level*nhorizon+ind)*states_sq));
       
       if(ind<nhorizon-1) {
         //copy cur_F_state + cur_F_input
@@ -568,7 +568,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     grid.sync();
 
     // works for 2 threads
-    if (DEBUG)
+    if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
       {
@@ -792,7 +792,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     d_d[i] = s_d[i];
   }
 
-  if (DEBUG)
+  if (!DEBUG)
   {
     if (block_id == 0 && thread_id == 0)
     {
