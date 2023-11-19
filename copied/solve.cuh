@@ -498,6 +498,14 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         glass::copy(inp_states,s_F_input+(inp_states*(cur_level*nhorizon+ind)),
                                d_F_input+(inp_states*(cur_level*nhorizon+ind)));
       }*/
+
+      /*
+      glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq), d_F_state+((prev_level*nhorizon+ind)*states_sq));
+      if(ind<nhorizon-1) {
+        glass::copy(states_sq,s_F_state+(states_sq*(cur_level*nhorizon+ind)), d_F_state+(states_sq*(cur_level*nhorizon+ind)));
+        glass::copy(inp_states,s_F_input+(inp_states*(cur_level*nhorizon+ind)), d_F_input+(inp_states*(cur_level*nhorizon+ind)));
+      }
+      */
     }
   }
   grid.sync();
@@ -524,14 +532,15 @@ __global__ void solve_Kernel(uint32_t nhorizon,
             printf("\nLEVEL %d\n", ind / nhorizon);
           }
           printf("\nF_lambda #%d: \n", ind);
-          printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
+          printMatrix(s_F_lambda + (ind * states_sq), nstates, nstates);
 
           printf("\nF_state #%d: \n", ind);
-          printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
+          printMatrix(s_F_state + (ind * states_sq), nstates, nstates);
 
           printf("\nF_input #%d: \n", ind);
-          printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
+          printMatrix(s_F_input + ind * inp_states, ninputs, nstates);
         }
+        /*
         for (unsigned i = 0; i < nhorizon; i++)
         {
           printf("\nd%d: \n", i);
@@ -543,6 +552,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
           printf("\nr%d: \n", i);
           printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
         }
+        */
       }
     }
 

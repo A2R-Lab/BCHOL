@@ -13,11 +13,12 @@ int main() {
 //Info about LQR problem
 
   uint32_t nhorizon = 8;
+  uint32_t depth = log2(8);
   uint32_t nstates = 6;
   uint32_t ninputs = 3; 
   
   //float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; //instead put it as d0
-  float Q_R[360] = { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q0
+  float Q_R[(nstates*nstates+ninputs*ninputs)*nhorizon] = { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Q0
                      0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
                      0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
                      0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
@@ -91,7 +92,7 @@ int main() {
                      0.00, 0.00, 0.00
                      }; //Q_R diagonal matrices - doesn't matter row/column order
 
-  float q_r[72] = { -2.0, -1.2, -0.4, 0.4, 1.2, 2.0, //q0
+  float q_r[(nstates+ninputs)*nhorizon] = { -2.0, -1.2, -0.4, 0.4, 1.2, 2.0, //q0
                     -1.0,  0.0,  1.0, //r0
                     -4.0, -2.4, -0.8, 0.8, 2.4, 4.0, //q1
                     -2.0,  0.0,  2.0, //r1
@@ -110,7 +111,7 @@ int main() {
                     }; //vectors q_r            
                     
  //c = 1 (?)
-   float A_B[432] = {1.0, 0.0, 0.0, 0.1, 0.0, 0.0, //row of A0 or column of A0^T
+   float A_B[(nstates*nstates+nstates*ninputs)*nhorizon] = {1.0, 0.0, 0.0, 0.1, 0.0, 0.0, //row of A0 or column of A0^T
                      0.0, 1.0, 0.0, 0.0, 0.1, 0.0, 
                      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
                      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
@@ -208,7 +209,7 @@ int main() {
                      0.0, 0.0, 0.0 //end of B7
                 };
                 
-    float d[48] = { 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, //x0
+    float d[nstates*nhorizon] = { 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, //x0
                  1.5, 1.5, 1.5, 1.5, 1.5, 1.5, //d0
                  3.0, 3.0, 3.0, 3.0, 3.0, 3.0, //d1
                  4.5, 4.5, 4.5,4.5, 4.5, 4.5, //d2
@@ -217,141 +218,16 @@ int main() {
                  9.0, 9.0, 9.0,9.0, 9.0, 9.0, // d5
                  10.5,10.5,10.5,10.5,10.5, 10.5 //d6
                };
-  
-  /*
-   float soln[117] = { 118.50447730549635,
-      172.84569760649603,
-      273.5288554044134,
-      29.888509228935593,
-      30.091008378771242,
-      16.84756914227718,
-      1.0,
-      -1.0,
-      2.0,
-      -2.0,
-      3.0,
-      -3.0,
-      -155.13285363660776,
-      -171.3872349844644,
-      -142.51126372056513,
-      119.50447730549635,
-      175.04569760649602,
-      271.92885540441335,
-      19.53806149838596,
-      8.386438618121641,
-      -9.345316398164156,
-      1.5243357318169608,
-      -0.05693617492232219,
-      2.4874436813971745,
-      -16.013285363660778,
-      -12.638723498446442,
-      -15.751126372056515,
-      -86.52339783362774,
-      -97.50030427497165,
-      -88.93739387741547,
-      121.98014157367939,
-      177.50263378141835,
-      270.2414117230162,
-      22.5533327046788,
-      0.8748987384262467,
-      -24.618331198409262,
-      2.490390206282744,
-      1.1916899538581749,
-      3.4676440748044457,
-      -21.66562514702355,
-      -19.388753925943607,
-      -21.644865759798062,
-      -67.44470283332527,
-      -76.68105472991847,
-      -76.27846178978213,
-      125.48975136739665,
-      179.91094382756017,
-      267.9737676482118,
-      30.469982714962686,
-      -1.3274417183861615,
-      -35.77084220343238,
-      4.486604177413763,
-      3.3694092876142214,
-      5.421765189875727,
-      -23.910095430356076,
-      -22.556859398935455,
-      -24.772711938776276,
-      -63.299207858196155,
-      -73.62340953552,
-      -77.94269612427102,
-      129.00314718998288,
-      181.34153453994597,
-      264.1520024583361,
-      39.87976342632047,
-      -1.7047357734453001,
-      -45.413330510489715,
-      7.779098595087174,
-      6.745606300043076,
-      8.554780515376743,
-      -24.240016216175693,
-      -23.919200352487454,
-      -26.56698155120338,
-      -55.58577212751382,
-      -71.84668167047012,
-      -82.73789943565697,
-      131.22404859489572,
-      180.5959282399029,
-      257.5972219429593,
-      48.99737478300659,
-      -1.8451282449481334,
-      -54.60607115358227,
-      12.577168112832036,
-      11.494452856441978,
-      12.984392863078119,
-      -22.298593428927074,
-      -23.60386851953447,
-      -27.340771494769076,
-      -23.636241878305015,
-      -57.436665054132945,
-      -83.84058887192744,
-      130.64688048206366,
-      176.30147538346088,
-      247.0128290798812,
-      55.83128016372731,
-      -3.071407263759751,
-      -63.966582566801314,
-      19.2291275605478,
-      17.846882679217867,
-      18.83111276924157,
-      -15.662217616757575,
-      -20.347535024947764,
-      -26.724830381961823,
-      75.77389865590904,
-      -5.333981259758644,
-      -72.09161999628519,
-      125.41775292151588,
-      166.854592704243,
-      230.98171631063963,
-      56.1517224883333,
-      -7.809331509236286,
-      -74.33992381590345,
-      28.541775292151588,
-      26.285459270424298,
-      26.298171631063962,
-      2.4151722488333296,
-      -10.380933150923628,
-      -23.433992381590347
-      }; */
-
-
     
-    //DO WE NEED IT?
     
-   //Fact_Lambda[nstates*nstates*nhorizon*depth]
-   float F_lambda[nstates*nstates*nhorizon*3]; 
-   float F_state[nstates*nstates*nhorizon*3];
-   for(uint32_t n = 0; n < nstates*nstates*nhorizon*3; n++){
+   float F_lambda[nstates*nstates*nhorizon*depth]; 
+   float F_state[nstates*nstates*nhorizon*depth];
+   for(uint32_t n = 0; n < nstates*nstates*nhorizon*depth; n++){
       F_lambda[n] = 0;
       F_state[n] = 0;
    }
   
-   //Fact_Input[nstates*ninputs*nhorizon*depth]  
-   float F_input[ninputs*nstates*nhorizon*3];
+   float F_input[ninputs*nstates*nhorizon*depth];
    for(uint32_t n = 0; n < ninputs*nstates*nhorizon; n++) {
       F_input[n] = 0;
    }
@@ -361,38 +237,38 @@ int main() {
    //Allocate memory on the GPU for x0,Q_R,q_r, A_B, d, 
 
    float* d_Q_R;
-   cudaMalloc((void**)&d_Q_R, 360*sizeof(float));
+   cudaMalloc((void**)&d_Q_R, (nstates*nstates+ninputs*ninputs)*nhorizon*sizeof(float));
 
    float* d_q_r;
-   cudaMalloc((void**)&d_q_r, 72*sizeof(float));
+   cudaMalloc((void**)&d_q_r, (nstates+ninputs)*nhorizon*sizeof(float));
 
    float* d_A_B;
-   cudaMalloc((void**)&d_A_B, 432*sizeof(float));
+   cudaMalloc((void**)&d_A_B, (nstates*nstates+nstates*ninputs)*nhorizon*sizeof(float));
 
    float* d_d;
-   cudaMalloc((void**)&d_d, 48*sizeof(float));
+   cudaMalloc((void**)&d_d, nstates*nhorizon*sizeof(float));
    printf("Allocated memory\n");
 
 
    float* d_F_lambda;
-   cudaMalloc((void**)&d_F_lambda, 36*8*3*sizeof(float));
+   cudaMalloc((void**)&d_F_lambda, nstates*nstates*nhorizon*depth*sizeof(float));
 
    float* d_F_state;
-   cudaMalloc((void**)&d_F_state, 36*8*3*sizeof(float));
+   cudaMalloc((void**)&d_F_state, nstates*nstates*nhorizon*depth*sizeof(float));
 
    float* d_F_input;
-   cudaMalloc((void**)&d_F_input, 18*8*3*sizeof(float));
+   cudaMalloc((void**)&d_F_input, nstates*ninputs*nhorizon*depth*sizeof(float));
    
    //Copy the matrices from the host to the GPU memory
    //cudaMemcpy(d_x0, x0, 6 * sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_Q_R, Q_R, 360 * sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_q_r, q_r, 72*sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_A_B, A_B, 432*sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_d, d, 48*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_Q_R, Q_R, (nstates*nstates+ninputs*ninputs)*nhorizon * sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_q_r, q_r, (nstates+ninputs)*nhorizon*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_A_B, A_B, (nstates*nstates+nstates*ninputs)*nhorizon*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_d, d, nstates*nhorizon*sizeof(float), cudaMemcpyHostToDevice);
    
-   cudaMemcpy(d_F_lambda, F_lambda, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_F_state, F_state, 36*8*3*sizeof(float), cudaMemcpyHostToDevice);
-   cudaMemcpy(d_F_input, F_input, 18*8*3*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_F_lambda, F_lambda, nstates*nstates*nhorizon*depth*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_F_state, F_state, nstates*nstates*nhorizon*depth*sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(d_F_input, F_input, nstates*ninputs*nhorizon*depth*sizeof(float), cudaMemcpyHostToDevice);
    
 
    //Launch CUDA kernel with block and grid dimensions
@@ -413,7 +289,6 @@ int main() {
     &d_F_state,
     &d_F_input
 };
-
 float time;
 cudaEvent_t start, stop;
 cudaEventCreate(&start);
@@ -421,8 +296,15 @@ cudaEventCreate(&stop);
 cudaEventRecord(start, 0);
 
 cudaLaunchCooperativeKernel ( kernelFunc, gridSize, blockSize, args, shared_mem );
-   
-   
+
+cudaError_t cudaStatus = cudaGetLastError();
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "Kernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        return 1;
+    }
+    else{
+    printf("all good\n");
+    }
 cudaDeviceSynchronize();
 printf("done with cuda!\n");
    
@@ -431,13 +313,13 @@ printf("done with cuda!\n");
    
    
 //Copy back to the host
-cudaMemcpy(q_r,d_q_r, 72*sizeof(float),cudaMemcpyDeviceToHost);
-cudaMemcpy(d,d_d, 48*sizeof(float),cudaMemcpyDeviceToHost);
-cudaMemcpy(Q_R,d_Q_R, 360*sizeof(float),cudaMemcpyDeviceToHost);
-cudaMemcpy(A_B,d_A_B, 432*sizeof(float),cudaMemcpyDeviceToHost);
-cudaMemcpy(F_lambda,d_F_lambda, 36*8*3*sizeof(float),cudaMemcpyDeviceToHost);
-cudaMemcpy(F_state,d_F_state,36*8*3*sizeof(float),cudaMemcpyDeviceToHost);
-cudaMemcpy(F_input,d_F_input, 18*8*3*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(q_r,d_q_r, (nstates+ninputs)*nhorizon*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(d,d_d, nstates*nhorizon*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(Q_R,d_Q_R, (nstates*nstates+ninputs*ninputs)*nhorizon*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(A_B,d_A_B, (nstates*nstates+nstates*ninputs)*nhorizon*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(F_lambda,d_F_lambda, nstates*nstates*nhorizon*depth*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(F_state,d_F_state,nstates*nstates*nhorizon*depth*sizeof(float),cudaMemcpyDeviceToHost);
+cudaMemcpy(F_input,d_F_input, nstates*ninputs*nhorizon*depth*sizeof(float),cudaMemcpyDeviceToHost);
 
 
 

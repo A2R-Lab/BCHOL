@@ -467,11 +467,11 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                      s_Q_R, s_q_r, s_A_B, s_d,
                      s_F_lambda, s_F_state, s_F_input);
+    
 
     int cur_level = s_levels[ind];
-    int prev_level = s_levels[ind];
-    //copy result to ram need to copy the sol vector
-    
+    int prev_level = s_levels[ind-1];
+    //copy result to ram need to copy the sol vector   
     glass::copy(nhorizon, s_d+(ind*nstates),d_d+(ind*nstates));
     glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
     //copy Q_R
@@ -486,32 +486,34 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       }
     
     else{
-      /*
+      
+      
+      
       // otherwise copy F-state prev
       glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq),
-                              d_F_lambda+((prev_level*nhorizon+ind)*states_sq));
+                              d_F_state+((prev_level*nhorizon+ind)*states_sq));
       
       if(ind<nhorizon-1) {
         //copy cur_F_state + cur_F_input
         glass::copy(states_sq,s_F_lambda+(states_sq*(cur_level*nhorizon+ind)),
-                              d_F_input+(states_sq*(cur_level*nhorizon+ind)));
+                              d_F_lambda+(states_sq*(cur_level*nhorizon+ind)));
         glass::copy(inp_states,s_F_input+(inp_states*(cur_level*nhorizon+ind)),
                                d_F_input+(inp_states*(cur_level*nhorizon+ind)));
-      }*/
+      }
     }
   }
   grid.sync();
 
  
   //update the shared ONLY of your neighbours in the future, now everything
-  /*
+  /* THIS  ALSO NEEDS A FIX
   glass::copy<float>((nstates+ninputs)*nhorizon,d_q_r,s_q_r);
   glass::copy<float>(nstates*nhorizon, d_d,s_d);
   glass::copy<float>(states_sq*nhorizon, d_F_lambda,s_F_lambda);
   glass::copy<float>(states_sq*nhorizon,d_F_state,s_F_state);
-  glass::copy<float>(inp_states*nhorizon,d_F_input,s_F_input);
+  glass::copy<float>(inp_states*nhorizon,d_F_input,s_F_input);*/
   grid.sync();
-  */
+  
   if(DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
