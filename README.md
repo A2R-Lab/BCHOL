@@ -7,3 +7,5 @@ Contains the pruned code of the rsLQR algorithm, implemented in Python. The orig
 1. "Structure Descriptions.docx" contains the description of the C structures used in the original implementation.
 2. "Data flow before ndlqr_Solve().pdf" contains the explanation of the data flow before the final (ndlqr_Solve()) function.
 3. "Data flow and ndlqr_Solve() description.docx" contains the explanation of the data flow in the ndlqr_Solve() function.
+
+hello how are you?

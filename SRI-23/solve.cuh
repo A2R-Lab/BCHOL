@@ -474,8 +474,8 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     //copy result to ram need to copy the sol vector   
     glass::copy(nhorizon, s_d+(ind*nstates),d_d+(ind*nstates));
     glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
+   
     //copy Q_R
-    
     glass::copy(states_sq+inputs_sq,s_Q_R+(ind*(states_sq+inputs_sq)),
                                     d_Q_R+(ind*(states_sq+inputs_sq)));
     
@@ -486,17 +486,14 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       }
     
     else{
-      
-      
-      
       // otherwise copy F-state prev
       glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq),
                               d_F_state+((prev_level*nhorizon+ind)*states_sq));
       
       if(ind<nhorizon-1) {
         //copy cur_F_state + cur_F_input
-        glass::copy(states_sq,s_F_lambda+(states_sq*(cur_level*nhorizon+ind)),
-                              d_F_lambda+(states_sq*(cur_level*nhorizon+ind)));
+        glass::copy(states_sq,s_F_state+(states_sq*(cur_level*nhorizon+ind)),
+                              d_F_state+(states_sq*(cur_level*nhorizon+ind)));
         glass::copy(inp_states,s_F_input+(inp_states*(cur_level*nhorizon+ind)),
                                d_F_input+(inp_states*(cur_level*nhorizon+ind)));
       }
@@ -505,13 +502,15 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   grid.sync();
 
  
-  //update the shared ONLY of your neighbours in the future, now everything
-  /* THIS  ALSO NEEDS A FIX
-  glass::copy<float>((nstates+ninputs)*nhorizon,d_q_r,s_q_r);
-  glass::copy<float>(nstates*nhorizon, d_d,s_d);
-  glass::copy<float>(states_sq*nhorizon, d_F_lambda,s_F_lambda);
-  glass::copy<float>(states_sq*nhorizon,d_F_state,s_F_state);
-  glass::copy<float>(inp_states*nhorizon,d_F_input,s_F_input);*/
+  //update the shared ONLY of your neighbours in the future, now everything 
+  
+for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
+  glass::copy<float>((nstates+ninputs)*nhorizon,d_q_r,s_q_r); //this line ok
+  glass::copy<float>(nstates*nhorizon, d_d,s_d); //ok
+  glass::copy<float>(states_sq*nhorizon*depth, d_F_lambda,s_F_lambda); //ok
+  //glass::copy<float>(states_sq*nhorizon*depth,d_F_state,s_F_state); 
+  glass::copy<float>(inp_states*nhorizon*depth,d_F_input,s_F_input); //ok
+}
   grid.sync();
   
   if(DEBUG)
@@ -529,7 +528,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
           printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
 
           printf("\nF_state #%d: \n", ind);
-          printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
+          printMatrix(s_F_state + (ind * states_sq), nstates, nstates);
 
           printf("\nF_input #%d: \n", ind);
           printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
