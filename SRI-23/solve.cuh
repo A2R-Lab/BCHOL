@@ -470,7 +470,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     
 
     int cur_level = s_levels[ind];
-    int prev_level = s_levels[ind-1];
     //copy result to ram need to copy the sol vector   
     glass::copy(nhorizon, s_d+(ind*nstates),d_d+(ind*nstates));
     glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
@@ -487,6 +486,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     
     else{
       // otherwise copy F-state prev
+      int prev_level = s_levels[ind-1];
       glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq),
                               d_F_state+((prev_level*nhorizon+ind)*states_sq));
       
@@ -503,17 +503,18 @@ __global__ void solve_Kernel(uint32_t nhorizon,
 
  
   //update the shared ONLY of your neighbours in the future, now everything 
-  
+
 for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
   glass::copy<float>((nstates+ninputs)*nhorizon,d_q_r,s_q_r); //this line ok
   glass::copy<float>(nstates*nhorizon, d_d,s_d); //ok
   glass::copy<float>(states_sq*nhorizon*depth, d_F_lambda,s_F_lambda); //ok
-  //glass::copy<float>(states_sq*nhorizon*depth,d_F_state,s_F_state); 
+  glass::copy<float>(states_sq*nhorizon*depth,d_F_state,s_F_state); //NOT OK!
   glass::copy<float>(inp_states*nhorizon*depth,d_F_input,s_F_input); //ok
 }
-  grid.sync();
+grid.sync();
   
-  if(DEBUG)
+  //solve_leaf ok!
+  if(!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
       {
@@ -547,31 +548,47 @@ for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
       }
     }
 
+
   // Solve factorization - can do in parallel - use block_id?
   for (uint32_t level = 0; level < depth; level++)
-  { // change to level < depth later
+  { 
     uint32_t numleaves = pow(2.0, (depth - level - 1));
 
     // Calc Inner Products
     uint32_t cur_depth = depth - level;
     uint32_t num_products = numleaves * cur_depth;
 
-    // in parallel block or thread?
+    //before parallelization opt
+    /*
     for (uint32_t ind = block_id; ind < num_products; ind += grid_dim)
     {
-      uint32_t leaf = ind / cur_depth;
-      uint32_t upper_level = level + (ind % cur_depth);
-      uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-      factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+   
+        uint32_t leaf = ind / cur_depth;
+        uint32_t upper_level = level + (ind % cur_depth);
+        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
+        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+    
     }
+    */
+    // in parallel block idea
+    
+    for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
+    {
+      for(uint32_t t_ind = 0; t_ind < cur_depth; t_ind+=1)
+      {
+        uint32_t ind = b_ind*cur_depth+t_ind;
+        uint32_t leaf = ind / cur_depth;
+        uint32_t upper_level = level + (ind % cur_depth);
+        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
+        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+      }
+    }
+    //grid.sync();
 
-    // in original code syncs here before proceeding
-    grid.sync();
-
-    // works for 2 threads
+    //checked, working
     if (!DEBUG)
     {
-      if (block_id == 0 && thread_id == 0)
+      if (block_id == 1 && thread_id == 0)
       {
         printf("CHECKING DATA AFTER calc_inner %d", level);
         for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
@@ -612,8 +629,8 @@ for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
     }
 
-    grid.sync();
-
+    //grid.sync();
+    //all good
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
@@ -651,18 +668,33 @@ for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
     // Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth - 1;
     uint32_t num_solves = numleaves * upper_levels;
-    for (uint32_t i = block_id; i < num_solves; i += grid_dim)
+
+    /* //old version
+    for (uint32_t i = block_id; i < num_solves; i+=grid_dim) {
+      uint32_t leaf = i / upper_levels;
+      uint32_t upper_level = level + 1 + (i % upper_levels);
+      uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
+      SolveCholeskyFactor<T>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, 
+                                 nstates, ninputs, nhorizon);
+    }
+    */
+
+    //with few levels per block
+    for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
+      for (uint32_t t_id = 0; t_id < upper_levels; t_id+=1)
+      {
+      uint32_t i = b_id*upper_levels+t_id;
       uint32_t leaf = i / upper_levels;
       uint32_t upper_level = level + 1 + (i % upper_levels);
       uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
       SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level,
                                  nstates, ninputs, nhorizon);
     }
+    }
 
-    grid.sync();
-
-    // works fine with multiple threads
+    //grid.sync();
+    //all good
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
@@ -696,6 +728,8 @@ for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
         }
       }
     }
+
+
     // Shur compliments
     uint32_t num_factors = nhorizon * upper_levels;
     for (uint32_t i = block_id; i < num_factors; i += grid_dim)
@@ -743,7 +777,7 @@ for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
         }
       }
     }
-    grid.sync();
+    //grid.sync();
   }
 
   // solve for solution vector using the cached factorization
