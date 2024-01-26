@@ -549,29 +549,17 @@ grid.sync();
     }
 
 
-  // Solve factorization - can do in parallel - use block_id?
   for (uint32_t level = 0; level < depth; level++)
   { 
+    if (block_id == 0 && thread_id == 0) {
+      printf("level , %d\n", level);
+    }
     uint32_t numleaves = pow(2.0, (depth - level - 1));
 
     // Calc Inner Products
     uint32_t cur_depth = depth - level;
-    uint32_t num_products = numleaves * cur_depth;
 
-    //before parallelization opt
-    /*
-    for (uint32_t ind = block_id; ind < num_products; ind += grid_dim)
-    {
-   
-        uint32_t leaf = ind / cur_depth;
-        uint32_t upper_level = level + (ind % cur_depth);
-        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
-    
-    }
-    */
     // in parallel block idea
-    
     for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
     {
       for(uint32_t t_ind = 0; t_ind < cur_depth; t_ind+=1)
@@ -588,7 +576,7 @@ grid.sync();
     //checked, working
     if (!DEBUG)
     {
-      if (block_id == 1 && thread_id == 0)
+      if (block_id == 0 && thread_id == 0)
       {
         printf("CHECKING DATA AFTER calc_inner %d", level);
         for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
@@ -630,7 +618,6 @@ grid.sync();
     }
 
     //grid.sync();
-    //all good
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
@@ -668,16 +655,6 @@ grid.sync();
     // Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth - 1;
     uint32_t num_solves = numleaves * upper_levels;
-
-    /* //old version
-    for (uint32_t i = block_id; i < num_solves; i+=grid_dim) {
-      uint32_t leaf = i / upper_levels;
-      uint32_t upper_level = level + 1 + (i % upper_levels);
-      uint32_t lin_ind = pow(2.0, level) *(2*leaf+1)-1;
-      SolveCholeskyFactor<T>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level, 
-                                 nstates, ninputs, nhorizon);
-    }
-    */
 
     //with few levels per block
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
@@ -731,20 +708,41 @@ grid.sync();
 
 
     // Shur compliments
-    uint32_t num_factors = nhorizon * upper_levels;
-    for (uint32_t i = block_id; i < num_factors; i += grid_dim)
-    {
+  //original working version
+  /*
+  uint32_t num_factors = nhorizon * upper_levels;
+  for (uint32_t i = block_id; i < num_factors; i += grid_dim)
+  {
+    int k = i / upper_levels;
+    uint32_t upper_level = level + 1 + (i % upper_levels);
+
+    int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
+    bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
+    updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
+                      calc_lambda, nstates, ninputs, nhorizon);
+  }*/
+
+
+  //trying with blocks
+  uint32_t num_factors = nhorizon * upper_levels;
+  uint32_t num_perblock = num_factors/numleaves;
+  for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
+  {
+    //for each block run ait 4 times
+    for (uint32_t t_id = 0; t_id < num_perblock; t_id+=1) {
+      int i = (b_id*4)+t_id;
       int k = i / upper_levels;
       uint32_t upper_level = level + 1 + (i % upper_levels);
 
       int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
       bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
       updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
-                        calc_lambda, nstates, ninputs, nhorizon);
+                      calc_lambda, nstates, ninputs, nhorizon);
     }
-    grid.sync();
+  }
+    //grid.sync();
 
-    if (!DEBUG)
+    if (DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
       {
@@ -778,6 +776,12 @@ grid.sync();
       }
     }
     //grid.sync();
+    if (block_id == 0 && thread_id == 0){
+      printf("done with one loop!\n");
+    }
+
+    //after finishing with the level need to rewrite needed information to new block
+    //use maybe unused blocks? 5-8 for example
   }
 
   // solve for solution vector using the cached factorization

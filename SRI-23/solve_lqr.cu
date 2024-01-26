@@ -280,7 +280,7 @@ int main() {
    void* args[] = {             // prepare the kernel arguments
     &nhorizon,
     &ninputs,
-    &nstates,
+    &nstates, 
     &d_Q_R,
     &d_q_r,
     &d_A_B,
