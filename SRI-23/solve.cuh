@@ -16,7 +16,25 @@ __device__ const bool DEBUG = true;
 
 namespace cgrps = cooperative_groups;
 
-/* @brief Solve all the equations for the lower-level diagonal blocks, by timestep.
+/** @brief Prints the desired matrix in row-column order.
+ * @param T *matrix - pointer to the stored matrix
+ * @param uint32 rows - number of rows in matrix
+ * @param uint32 columns - number of columns
+ * */
+template <typename T>
+__host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
+{
+  for (unsigned i = 0; i < rows; i++)
+  {
+    for (int j = 0; j < cols; j++)
+    {
+      printf("%f  ", matrix[j * rows + i]);
+    }
+    printf("\n");
+  }
+}
+
+/** @brief Solve all the equations for the lower-level diagonal blocks, by timestep.
  * * For and LQR problem, it calculates
  *
  * \f[
@@ -37,20 +55,6 @@ namespace cgrps = cooperative_groups;
  * @param T *s_F_state - an array to hold the result of
  * @param T *s_F_input - an array to hold the result of
  */
-
-template <typename T>
-__host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
-{
-  for (unsigned i = 0; i < rows; i++)
-  {
-    for (int j = 0; j < cols; j++)
-    {
-      printf("%f  ", matrix[j * rows + i]);
-    }
-    printf("\n");
-  }
-}
-
 template <typename T>
 __device__ void solveLeaf(int *s_levels,
                           uint32_t index,
@@ -80,7 +84,8 @@ __device__ void solveLeaf(int *s_levels,
   float *A = &s_A_B[index * dyn_step];
   float *B = &s_A_B[index * dyn_step + states_sq];
   float *d = &s_d[index * nstates];
-  // fact matrices
+
+  // factorized matrices
   float *F_lambda = &s_F_lambda[(index + nhorizon * level) * states_sq];
   float *F_state = &s_F_state[(index + nhorizon * level) * states_sq];
   float *F_input = &s_F_input[(index + nhorizon * level) * inp_states];
@@ -96,8 +101,8 @@ __device__ void solveLeaf(int *s_levels,
 
     // dont need to coz we initialized with 0s set_const(nstates*nstates,0, s_F_state);
     set_const<float>(nstates * nstates, 0.0, s_F_state);
-    glass::copy<float>(nstates * ninputs, 1.0, B, F_input);        // copy  B_0
-    chol_InPlace<float>(ninputs, R);                               // maybe unnessasry
+    glass::copy<float>(nstates * ninputs, 1.0, B, F_input); // copy  B_0
+    chol_InPlace<float>(ninputs, R);
     cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); // Fu = R\B
     cholSolve_InPlace<float>(R, r, false, ninputs, 1);             // zu = R\zu
 
@@ -138,6 +143,28 @@ __device__ void solveLeaf(int *s_levels,
   }
 }
 
+/** @brief Calculates one of the inner products needed at current level
+ *
+ * Calculates the following:
+ *
+ * \f[
+ * \bar{\Lambda_{k+1}^{(p)}} = \bar{\Lambda_k^{(p)}}S +
+ *   \langle X_k^{(j)}, \bar{X}_k^{(p)} \rangle +
+ *   \langle U_k^{(j)}, \bar{U}_k^{(p)} \rangle +
+ *   \langle X_{k+1}^{(j)}, \bar{X}_{k+1}^{(p)} \rangle +
+ *   \langle U_{k+1}^{(j)}, \bar{U}_{k+1}^{(p)} \rangle
+ * \f]
+ *
+ * where \f$ j \f$ is @level, \f$ p \f$ is @p fact_level, and \f$ k \f$ is
+ * @p index.
+ *
+ * @param s_A_B                                     The data for the original KKT matrix
+ * @param fact_state, fact_input, fact_lambda       The current data for the factorization
+ * @param index                                     Knot point index
+ * @param fact_level                               Level index for the factorization data, or equivalently the parent or
+ *                   upper level. @p fact_level >= current level.
+ * @param nstates, ninputs,nhorizon                KKT parameters
+ */
 template <typename T>
 __device__ void factorInnerProduct(T *s_A_B,
                                    T *fact_state,
@@ -168,6 +195,28 @@ __device__ void factorInnerProduct(T *s_A_B,
   scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
 }
 
+/* @brief Calculates one of the inner products needed at current level, for solution vector instead of the factorized data matrices
+ *
+ * Calculates the following:
+ *
+ * \f[
+ * \bar{\Lambda_{k+1}^{(p)}} = \bar{\Lambda_k^{(p)}}S +
+ *   \langle X_k^{(j)}, \bar{X}_k^{(p)} \rangle +
+ *   \langle U_k^{(j)}, \bar{U}_k^{(p)} \rangle +
+ *   \langle X_{k+1}^{(j)}, \bar{X}_{k+1}^{(p)} \rangle +
+ *   \langle U_{k+1}^{(j)}, \bar{U}_{k+1}^{(p)} \rangle
+ * \f]
+ *
+ * where \f$ j \f$ is @level, \f$ p \f$ is @p fact_level, and \f$ k \f$ is
+ * @p index.
+ *
+ * @param s_A_B                                     The data for the original KKT matrix
+ * @param s_q_r, s_d       The current data for the factorization
+ * @param index                                     Knot point index
+ * @param fact_level                               Level index for the factorization data, or equivalently the parent or
+ *                   upper level. @p fact_level >= current level.
+ * @param nstates, ninputs,nhorizon                KKT parameters
+ */
 template <typename T>
 __device__ void factorInnerProduct_sol(T *s_A_B,
                                        T *s_q_r,
@@ -198,6 +247,28 @@ __device__ void factorInnerProduct_sol(T *s_A_B,
   scaled_sum<float>(nstates, 1, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
 }
 
+/** @brief Use the precomputed Cholesky factorization to solve for y at each parent level
+ *Solve the following linear system of equations, overwriting the right-hand-side.
+ *
+ * \f[
+ * \bar{\Lambda}_{k+1}^{(j)} y = \bar{\Lambda}_{k+1}^{(p)}
+ * \f]
+ *
+ * where \f$ j \f$ is @p level, \f$ p \f$ is @p upper_level, and \f$ k \f$ is
+ * @p index.
+ *
+ * This is the same as solving
+ * \f[
+ * -\bar{B}_i^{(j)} y_i^{(j,p)} = \bar{b}_i^{(j,p)}
+ * \f]
+ * using the notation from the paper.
+ *
+ * @param fact_state, fact_input,fact_lambda        Data for the factorization
+ * @param index       Knot point index
+ * @param level       Level index for the level currently being processed by the
+ *                    upper-level solve.
+ * @param upper_level Level index for the right-hand-side. @p upper_level > @p level.
+ */
 template <typename T>
 __device__ void SolveCholeskyFactor(T *fact_state,
                                     T *fact_input,
@@ -215,6 +286,13 @@ __device__ void SolveCholeskyFactor(T *fact_state,
   cholSolve_InPlace<float>(Sbar, f, 0, nstates, nstates);
 }
 
+/** @brief gets the index in "level" that corresponds to 'index'
+ * @param nhorizon KKT constant
+ * @param depth KKT constant
+ * @param level current level
+ * @param i index
+ * @param levels an array that surves as a binary tree structure, returns level for each index
+ */
 __device__ int getIndexFromLevel(int nhorizon, int depth, int level, int i, int *levels)
 {
   int num_nodes = pow(2, depth - level - 1);
@@ -235,6 +313,18 @@ __device__ int getIndexFromLevel(int nhorizon, int depth, int level, int i, int 
   return -1;
 }
 
+/**
+ * @brief Determines if the \f$ \Lambda \f$ should be updated during
+ *        ndlqr_UpdateSchurFactor()
+ *
+ * Basically checks to see if the \f$ \Lambda \f$ for the given index is a $B_i^{(p)}$ for
+ * any level greater than or equal to the current level.
+ *
+ * @param index     Knot point index calculated using GetIndexFromLevel()
+ * @param i         Knot point index being processed
+ * @param nhorizon  KKT constant
+ * @param levels    an array that surves as a binary tree structure, returns level for each index
+ */
 __device__ bool shouldCalcLambda(int index, int i, int nhorizon, int *levels)
 {
   int left_start = index - int(pow(2, levels[index])) + 1;
@@ -243,6 +333,34 @@ __device__ bool shouldCalcLambda(int index, int i, int nhorizon, int *levels)
   return !is_start || i == 0;
 }
 
+/** @brief Calculates \f$ x \f$ and \f$ z \f$ to complete the factorization at the current
+ *        level
+ *
+ * Calculates the following
+ *
+ * \f[
+ * \bar{\Lambda}_k^{(p)} =  \bar{\Lambda}_k^{(p)} - \bar{\Lambda}_k^{(j)}
+ * \bar{\Lambda}_{k_\text{sep}}^{(p)} \bar{X}_k^{(p)} =  \bar{X}_k^{(p)} - \bar{X}_k^{(j)}
+ * \bar{\Lambda}_{k_\text{sep}}^{(p)} \bar{U}_k^{(p)} =  \bar{U}_k^{(p)} - \bar{U}_k^{(j)}
+ * \bar{\Lambda}_{k_\text{sep}}^{(p)} \f]
+ *
+ * where \f$ \bar{\Lambda}_{k_\text{sep}}^{(p)} \f$ is equivalent to $y_i^{(j,p)}$ from the
+ * paper and is the result of SolveCholeskyFactor() for @p index, @p level, and
+ * @p upper_level.
+ *
+ * @param fact_state,
+ * fact_input, fact_lambda  Pointers for the factorization data
+ * @param index             Knot point index of the "separator" at level @p level.
+ *                          Should be calculated using getIndexFromlevel().
+ * @param i                 Knot point index to be processed
+ * @param level             Level index for the level currently being processed
+ * @param upper_level       Level index of the upper level.
+ *                          @p upper_level > @p level
+ * @param calc_lambda       Whether the \f$ \Lambda \f$ factor should be updated.
+ *                          This should be calculated using shouldCalcLambda().
+ * @param nstates,ninputs,
+ * nhorizon                 KKT constants
+ */
 template <typename T>
 __device__ void updateShur(T *fact_state,
                            T *fact_input,
@@ -285,6 +403,35 @@ __device__ void updateShur(T *fact_state,
   glass::gemm<float, 0>(ninputs, nstates, nstates, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
 }
 
+/** @brief Calculates \f$ x \f$ and \f$ z \f$ to complete the factorization at the current
+ *        level for solution vector instead of factorization matrices
+ *
+ * Calculates the following
+ *
+ * \f[
+ * \bar{\Lambda}_k^{(p)} =  \bar{\Lambda}_k^{(p)} - \bar{\Lambda}_k^{(j)}
+ * \bar{\Lambda}_{k_\text{sep}}^{(p)} \bar{X}_k^{(p)} =  \bar{X}_k^{(p)} - \bar{X}_k^{(j)}
+ * \bar{\Lambda}_{k_\text{sep}}^{(p)} \bar{U}_k^{(p)} =  \bar{U}_k^{(p)} - \bar{U}_k^{(j)}
+ * \bar{\Lambda}_{k_\text{sep}}^{(p)} \f]
+ *
+ * where \f$ \bar{\Lambda}_{k_\text{sep}}^{(p)} \f$ is equivalent to $y_i^{(j,p)}$ from the
+ * paper and is the result of SolveCholeskyFactor() for @p index, @p level, and
+ * @p upper_level.
+ *
+ * @param fact_state,
+ * fact_input, fact_lambda  Pointers for the factorization data
+ * @param index             Knot point index of the "separator" at level @p level.
+ * @param s_q_r, s_d        Solution vector
+ *                          Should be calculated using getIndexFromlevel().
+ * @param i                 Knot point index to be processed
+ * @param level             Level index for the level currently being processed
+ * @param upper_level       Level index of the upper level.
+ *                          @p upper_level > @p level
+ * @param calc_lambda       Whether the \f$ \Lambda \f$ factor should be updated.
+ *                          This should be calculated using shouldCalcLambda().
+ * @param nstates,ninputs,
+ * nhorizon                 KKT constants
+ */
 template <typename T>
 __device__ void updateShur_sol(T *fact_state,
                                T *fact_input,
@@ -330,7 +477,10 @@ __device__ void updateShur_sol(T *fact_state,
   glass::gemm<float, 0>(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state, cgrps::this_thread_block());
   glass::gemm<float, 0>(ninputs, nstates, 1, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
 }
-
+/** @brief builds the binary tree into an array form
+ * @param nhorizon number of timesteps
+ * @param levels the array that will hold binary tree structure
+ */
 __device__ void initializeBSTLevels(int nhorizon, int *levels)
 {
   int depth = log2f(nhorizon);
@@ -365,6 +515,35 @@ __device__ void initializeBSTLevels(int nhorizon, int *levels)
   }
 }
 
+/** @brief Gets all numbers at a specific level of the binary tree
+ * @param nhorizon Number of timesteps
+ * @param levels The array that holds the binary tree structure
+ * @param targetLevel The level for which to retrieve the numbers
+ * @param result An array to store the values at the specified level
+ * @return count Number of timesteps at @p targetLevel
+ */
+__device__ int getValuesAtLevel(int nhorizon, const int *levels, int targetLevel, int *result)
+{
+  // Initialize the result array to ensure it's "cleaned" before each call
+  for (int i = 0; i < nhorizon; i++)
+  {
+    result[i] = -1; // Use -1 to idicate no results
+  }
+
+  int count = 0;
+
+  for (int i = 0; i < nhorizon; i++)
+  {
+    if (levels[i] == targetLevel)
+    {
+      result[count++] = i;
+    }
+  }
+  return count;
+}
+
+/** @brief The rsLQR solver, the main function of the solver
+ */
 template <typename T>
 __global__ void solve_Kernel(uint32_t nhorizon,
                              uint32_t ninputs,
@@ -375,12 +554,11 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                              T *d_d,
                              T *d_F_lambda,
                              T *d_F_state,
-                             T *d_F_input
-                             )
-                        
+                             T *d_F_input)
+
 {
 
-  // block/threads init
+  // block/threads initialization
   const cgrps::thread_block block = cgrps::this_thread_block();
   const cgrps::grid_group grid = cgrps::this_grid();
   const uint32_t block_id = blockIdx.x;
@@ -405,175 +583,163 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   T *s_F_lambda = s_d + nstates * nhorizon;
   T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
   T *s_F_input = s_F_state + (states_sq * nhorizon * depth);
-  T *s_nI = s_F_input + depth * inp_states * nhorizon;
+  T *s_nI = s_F_input + (depth * inp_states * nhorizon);
   int *s_levels = (int *)(s_nI + states_sq);
+  int *s_tree_result = (int *)(s_levels + nhorizon);
 
   // move ram to shared
-  glass::copy<float>(cost_step*nhorizon, d_Q_R, s_Q_R); 
-  glass::copy<float>((nstates+ninputs)*nhorizon, -1.0, d_q_r,s_q_r);
-  glass::copy<float>((states_sq+inp_states)*nhorizon, d_A_B, s_A_B); 
-  glass::copy<float>(nstates*nhorizon,-1.0, d_d,s_d);
-  glass::copy<float>(states_sq*nhorizon, d_F_lambda,s_F_lambda);
-  glass::copy<float>(states_sq*nhorizon,d_F_state,s_F_state);
-  glass::copy<float>(inp_states*nhorizon,d_F_input,s_F_input);
-  block.sync(); //block or grid?
+  glass::copy<float>(cost_step * nhorizon, d_Q_R, s_Q_R);
+  glass::copy<float>((nstates + ninputs) * nhorizon, -1.0, d_q_r, s_q_r);
+  glass::copy<float>((states_sq + inp_states) * nhorizon, d_A_B, s_A_B);
+  glass::copy<float>(nstates * nhorizon, -1.0, d_d, s_d);
+  glass::copy<float>(states_sq * nhorizon * depth, d_F_lambda, s_F_lambda);
+  glass::copy<float>(states_sq * nhorizon * depth, d_F_state, s_F_state);
+  glass::copy<float>(inp_states * nhorizon * depth, d_F_input, s_F_input);
+  block.sync(); // block or grid?
 
-  diag_Matrix_set<float>(nstates, -1.0, s_nI);
+  diag_Matrix_set<float>(nstates, -1.0, s_nI); // unnessesary need to clean up later
+  block.sync();
+  initializeBSTLevels(nhorizon, s_levels);
   block.sync();
 
-  if (thread_id == 0)
-  {
-    initializeBSTLevels(nhorizon, s_levels);
-  }
-  block.sync();
-
-   if (!DEBUG)
-    {
-      if (block_id == 0 && thread_id == 0)
-      {
-        printf("CHECKING DATA BEFORE SOLVE LEAF");
-        for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
-        {
-          if (ind % nhorizon == 0)
-          {
-            printf("\nLEVEL %d\n", ind / nhorizon);
-          }
-          printf("\nF_lambda #%d: \n", ind);
-          printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
-
-          printf("\nF_state #%d: \n", ind);
-          printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
-
-          printf("\nF_input #%d: \n", ind);
-          printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
-        }
-        for (unsigned i = 0; i < nhorizon; i++)
-        {
-          printf("\nd%d: \n", i);
-          printMatrix(d_d + i * nstates, 1, nstates);
-
-          printf("\nq%d: \n", i);
-          printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
-
-          printf("\nr%d: \n", i);
-          printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
-        }
-      }
-    }
-
-  // should solveLeaf in parallel
+  // should solveLeaf in parallel, each block per time step
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
     solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                      s_Q_R, s_q_r, s_A_B, s_d,
                      s_F_lambda, s_F_state, s_F_input);
-    
 
+    block.sync();
     int cur_level = s_levels[ind];
-    //copy result to ram need to copy the sol vector   
-    glass::copy(nhorizon, s_d+(ind*nstates),d_d+(ind*nstates));
-    glass::copy(ninputs+nstates, s_q_r+(ind*(ninputs+nstates)), d_q_r+(ind*(ninputs+nstates)));
-   
-    //copy Q_R
-    glass::copy(states_sq+inputs_sq,s_Q_R+(ind*(states_sq+inputs_sq)),
-                                    d_Q_R+(ind*(states_sq+inputs_sq)));
-    
-    if(ind==0){
-      //copy F_lambda for ind==0 &F_input
-      glass::copy(states_sq,s_F_lambda,d_F_lambda);
-      glass::copy(inp_states,s_F_input,d_F_input);
-      }
-    
-    else{
+    // copy result to ram need to copy the sol vector
+    glass::copy(nhorizon, s_d + (ind * nstates), d_d + (ind * nstates));
+    glass::copy(ninputs + nstates, s_q_r + (ind * (ninputs + nstates)), d_q_r + (ind * (ninputs + nstates)));
+
+    // copy Q_R
+    glass::copy(states_sq + inputs_sq, s_Q_R + (ind * (states_sq + inputs_sq)),
+                d_Q_R + (ind * (states_sq + inputs_sq)));
+
+    if (ind == 0)
+    {
+      // copy F_lambda&F_input only for ind==0
+      glass::copy(states_sq, s_F_lambda, d_F_lambda);
+      glass::copy(inp_states, s_F_input, d_F_input);
+    }
+
+    else
+    {
       // otherwise copy F-state prev
-      int prev_level = s_levels[ind-1];
-      glass::copy(states_sq,s_F_state+((prev_level*nhorizon+ind)*states_sq),
-                              d_F_state+((prev_level*nhorizon+ind)*states_sq));
-      
-      if(ind<nhorizon-1) {
-        //copy cur_F_state + cur_F_input
-        glass::copy(states_sq,s_F_state+(states_sq*(cur_level*nhorizon+ind)),
-                              d_F_state+(states_sq*(cur_level*nhorizon+ind)));
-        glass::copy(inp_states,s_F_input+(inp_states*(cur_level*nhorizon+ind)),
-                               d_F_input+(inp_states*(cur_level*nhorizon+ind)));
+      int prev_level = s_levels[ind - 1];
+      glass::copy(states_sq, s_F_state + ((prev_level * nhorizon + ind) * states_sq),
+                  d_F_state + ((prev_level * nhorizon + ind) * states_sq));
+
+      if (ind < nhorizon - 1)
+      {
+        // copy cur_F_state + cur_F_input
+        glass::copy(states_sq, s_F_state + (states_sq * (cur_level * nhorizon + ind)),
+                    d_F_state + (states_sq * (cur_level * nhorizon + ind)));
+        glass::copy(inp_states, s_F_input + (inp_states * (cur_level * nhorizon + ind)),
+                    d_F_input + (inp_states * (cur_level * nhorizon + ind)));
       }
     }
   }
   grid.sync();
 
- 
-  //update the shared ONLY of your neighbours in the future, now everything 
+  // update the shared ONLY of your neighbours in the future, now everything
+  for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
+  {
+    glass::copy<float>((nstates + ninputs) * nhorizon, d_q_r, s_q_r);
+    glass::copy<float>(nstates * nhorizon, d_d, s_d);
+    /* copying in the beginning of the level loop
+    glass::copy<float>(states_sq*nhorizon*depth, d_F_lambda,s_F_lambda);
+    glass::copy<float>(states_sq*nhorizon*depth,d_F_state,s_F_state);
+    glass::copy<float>(inp_states*nhorizon*depth,d_F_input,s_F_input);
+    */
+  }
+  grid.sync();
 
-for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim){
-  glass::copy<float>((nstates+ninputs)*nhorizon,d_q_r,s_q_r); //this line ok
-  glass::copy<float>(nstates*nhorizon, d_d,s_d); //ok
-  glass::copy<float>(states_sq*nhorizon*depth, d_F_lambda,s_F_lambda); //ok
-  glass::copy<float>(states_sq*nhorizon*depth,d_F_state,s_F_state); //NOT OK!
-  glass::copy<float>(inp_states*nhorizon*depth,d_F_input,s_F_input); //ok
-}
-grid.sync();
-  
-  //solve_leaf ok!
-  if(!DEBUG)
+  // set to true to check solveLeaf & copying
+  if (!DEBUG)
+  {
+    if (block_id == 0 && thread_id == 0)
     {
-      if (block_id == 0 && thread_id == 0)
+      printf("CHECKING D DATA AFTER SOLVE LEAF");
+      for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
       {
-        printf("CHECKING DATA AFTER SOLVE LEAF");
-        for (uint32_t ind = 0; ind < nhorizon * depth; ind++)
+        if (ind % nhorizon == 0)
         {
-          if (ind % nhorizon == 0)
-          {
-            printf("\nLEVEL %d\n", ind / nhorizon);
-          }
-          printf("\nF_lambda #%d: \n", ind);
-          printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
-
-          printf("\nF_state #%d: \n", ind);
-          printMatrix(s_F_state + (ind * states_sq), nstates, nstates);
-
-          printf("\nF_input #%d: \n", ind);
-          printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
+          printf("\nLEVEL %d\n", ind / nhorizon);
         }
-        for (unsigned i = 0; i < nhorizon; i++)
-        {
-          printf("\nd%d: \n", i);
-          printMatrix(d_d + i * nstates, 1, nstates);
+        printf("\nF_lambda #%d: \n", ind);
+        printMatrix(d_F_lambda + (ind * states_sq), nstates, nstates);
 
-          printf("\nq%d: \n", i);
-          printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
+        printf("\nF_state #%d: \n", ind);
+        printMatrix(d_F_state + (ind * states_sq), nstates, nstates);
 
-          printf("\nr%d: \n", i);
-          printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
-        }
+        printf("\nF_input #%d: \n", ind);
+        printMatrix(d_F_input + ind * inp_states, ninputs, nstates);
+      }
+      for (unsigned i = 0; i < nhorizon; i++)
+      {
+        printf("\nd%d: \n", i);
+        printMatrix(d_d + i * nstates, 1, nstates);
+
+        printf("\nq%d: \n", i);
+        printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+      }
+    }
+  }
+
+  // using only numleaves blocks (two timesteps per block)
+  for (uint32_t level = 0; level < depth; level++)
+  {
+
+    //before processing make sure you copied all needed info from RAM
+    //need to copy ind and ind+1 for all level - depth
+    uint32_t count = getValuesAtLevel(nhorizon, s_levels, level, s_tree_result);
+    for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
+    {
+      uint32_t ind = s_tree_result[b_id];
+      for (uint32_t cur_level = level; cur_level < depth; cur_level++)
+      {
+        // copy F_lambda of ind and of ind+1
+        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
+                    s_F_state + (states_sq * (cur_level * nhorizon + ind)));
+        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
+                    s_F_state + (states_sq * (cur_level * nhorizon + ind)));
+        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
+                    s_F_input + (inp_states * (cur_level * nhorizon + ind)));
+
+        // copying ind+1
+        uint32_t next_ind = ind + 1;
+        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
+                    s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
+        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
+                    s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
+        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
+                    s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
       }
     }
 
-
-  for (uint32_t level = 0; level < depth; level++)
-  { 
-    if (block_id == 0 && thread_id == 0) {
-      printf("level , %d\n", level);
-    }
     uint32_t numleaves = pow(2.0, (depth - level - 1));
-
-    // Calc Inner Products
     uint32_t cur_depth = depth - level;
 
-    // in parallel block idea
+    // Calc Inner Products in parallel
     for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
     {
-      for(uint32_t t_ind = 0; t_ind < cur_depth; t_ind+=1)
+      for (uint32_t t_ind = 0; t_ind < cur_depth; t_ind += 1)
       {
-        uint32_t ind = b_ind*cur_depth+t_ind;
+        uint32_t ind = b_ind * cur_depth + t_ind;
         uint32_t leaf = ind / cur_depth;
         uint32_t upper_level = level + (ind % cur_depth);
         uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
       }
     }
-    //grid.sync();
-
-    //checked, working
+    // set to true to check factorInner
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
@@ -617,7 +783,6 @@ grid.sync();
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
     }
 
-    //grid.sync();
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
@@ -654,24 +819,19 @@ grid.sync();
 
     // Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth - 1;
-    uint32_t num_solves = numleaves * upper_levels;
-
-    //with few levels per block
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
-      for (uint32_t t_id = 0; t_id < upper_levels; t_id+=1)
+      for (uint32_t t_id = 0; t_id < upper_levels; t_id += 1)
       {
-      uint32_t i = b_id*upper_levels+t_id;
-      uint32_t leaf = i / upper_levels;
-      uint32_t upper_level = level + 1 + (i % upper_levels);
-      uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-      SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level,
-                                 nstates, ninputs, nhorizon);
-    }
+        uint32_t i = b_id * upper_levels + t_id;
+        uint32_t leaf = i / upper_levels;
+        uint32_t upper_level = level + 1 + (i % upper_levels);
+        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
+        SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level,
+                                   nstates, ninputs, nhorizon);
+      }
     }
 
-    //grid.sync();
-    //all good
     if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
@@ -705,44 +865,25 @@ grid.sync();
         }
       }
     }
+    // Solve updateShur
+    uint32_t num_factors = nhorizon * upper_levels;
+    uint32_t num_perblock = num_factors / numleaves;
+    for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
+    {
+      for (uint32_t t_id = 0; t_id < num_perblock; t_id += 1)
+      {
+        int i = (b_id * 4) + t_id;
+        int k = i / upper_levels;
+        uint32_t upper_level = level + 1 + (i % upper_levels);
 
-
-    // Shur compliments
-  //original working version
-  /*
-  uint32_t num_factors = nhorizon * upper_levels;
-  for (uint32_t i = block_id; i < num_factors; i += grid_dim)
-  {
-    int k = i / upper_levels;
-    uint32_t upper_level = level + 1 + (i % upper_levels);
-
-    int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
-    bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
-    updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
-                      calc_lambda, nstates, ninputs, nhorizon);
-  }*/
-
-
-  //trying with blocks
-  uint32_t num_factors = nhorizon * upper_levels;
-  uint32_t num_perblock = num_factors/numleaves;
-  for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
-  {
-    //for each block run ait 4 times
-    for (uint32_t t_id = 0; t_id < num_perblock; t_id+=1) {
-      int i = (b_id*4)+t_id;
-      int k = i / upper_levels;
-      uint32_t upper_level = level + 1 + (i % upper_levels);
-
-      int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
-      bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
-      updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
-                      calc_lambda, nstates, ninputs, nhorizon);
+        int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
+        bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
+        updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
+                          calc_lambda, nstates, ninputs, nhorizon);
+      }
     }
-  }
-    //grid.sync();
 
-    if (DEBUG)
+    if (!DEBUG)
     {
       if (block_id == 0 && thread_id == 0)
       {
@@ -775,16 +916,41 @@ grid.sync();
         }
       }
     }
-    //grid.sync();
-    if (block_id == 0 && thread_id == 0){
-      printf("done with one loop!\n");
+
+    // sanity check that we are done with the loop
+    if (block_id == 0 && thread_id == 0)
+    {
+      printf("done with the loop!\n");
     }
 
-    //after finishing with the level need to rewrite needed information to new block
-    //use maybe unused blocks? 5-8 for example
+    // after finishing with the level need to rewrite from shared to RAM only upperlevels of block
+    for (uint32_t b_id= block_id; b_id < count; b_id += grid_dim)
+    {
+      uint32_t ind = s_tree_result[b_id];
+      for (uint32_t up_level = level + 1; up_level < depth; up_level++)
+      {
+        // copy F_lambda of ind and of ind+1
+        glass::copy(states_sq, s_F_lambda + (states_sq * (up_level * nhorizon + ind)),
+                    d_F_state + (states_sq * (up_level * nhorizon + ind)));
+        glass::copy(states_sq, s_F_state + (states_sq * (up_level * nhorizon + ind)),
+                    d_F_state + (states_sq * (up_level * nhorizon + ind)));
+        glass::copy(inp_states, s_F_input + (inp_states * (up_level * nhorizon + ind)),
+                    d_F_input + (inp_states * (up_level * nhorizon + ind)));
+        // copying ind+1
+        uint32_t next_ind = ind + 1;
+        glass::copy(states_sq, s_F_lambda + (states_sq * (up_level * nhorizon + next_ind)),
+                    d_F_state + (states_sq * (up_level * nhorizon + next_ind)));
+        glass::copy(states_sq, s_F_state + (states_sq * (up_level * nhorizon + next_ind)),
+                    d_F_state + (states_sq * (up_level * nhorizon + next_ind)));
+        glass::copy(inp_states, s_F_input + (inp_states * (up_level * nhorizon + next_ind)),
+                    d_F_input + (inp_states * (up_level * nhorizon + next_ind)));
+      }
+    }
   }
 
   // solve for solution vector using the cached factorization
+
+  //HAVEN"T DONE COPYiNG TO FROM RAM FOR SOLN!!
   for (uint32_t level = 0; level < depth; ++level)
   {
     uint32_t numleaves = pow(2.0, (depth - level - 1));

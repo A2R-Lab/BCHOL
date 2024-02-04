@@ -6,7 +6,18 @@
 #include <cooperative_groups.h>
 //#include "blockassert.cuh" //need to write!
 
-
+template <typename T>
+__host__ __device__ void printMatrixH(T *matrix, uint32_t rows, uint32_t cols)
+{
+  for (unsigned i = 0; i < rows; i++)
+  {
+    for (int j = 0; j < cols; j++)
+    {
+      printf("%f  ", matrix[j * rows + i]);
+    }
+    printf("\n");
+  }
+}
 __host__
 int main() {
   printf("Run Test\n");
@@ -228,12 +239,11 @@ int main() {
    }
   
    float F_input[ninputs*nstates*nhorizon*depth];
-   for(uint32_t n = 0; n < ninputs*nstates*nhorizon; n++) {
+   for(uint32_t n = 0; n < ninputs*nstates*nhorizon*depth; n++) {
       F_input[n] = 0;
    }
 
 
-   
    //Allocate memory on the GPU for x0,Q_R,q_r, A_B, d, 
 
    float* d_Q_R;
@@ -294,6 +304,7 @@ cudaEvent_t start, stop;
 cudaEventCreate(&start);
 cudaEventCreate(&stop);
 cudaEventRecord(start, 0);
+cudaDeviceSynchronize();
 
 cudaLaunchCooperativeKernel ( kernelFunc, gridSize, blockSize, args, shared_mem );
 
