@@ -1,0 +1,48 @@
+Jan 16, Yana:
+
+Current status:
+new-test and local-new_test both have working versions for 1 block
+
+Goals:
+-identify problems for 2 blocks (right now send nan)
+
+Problems:
+F_state is not copied but d,q,r are correct
+When using 1 block F_state is copied
+
+Reminder:
+d = lambda
+q =state
+r = input
+
+Jan 17, Yana:
+
+Line 511 is causing troubles for 1 block general solution, but works fine for solve_leaf
+
+for (uint32_t ind = block_id; ind < numleaves; ind += grid_dim)
+    {
+      for(uint32_t ind = 0; ind < cur_depth; ind+=block_dim) 
+      {}
+    }
+instead of for(uint32_t ind = block_id; ind < num_products; ind += grid_dim)
+
+Can we do threads here or should we leave it as block?
+
+Jan 23, Yana:
+
+Loop 672-679 chage to have 2 loops per blocks
+Everything works till Shur complements
+
+Jan 26th, Yana:
+
+Figure out dependency flow
+
+Update Shur:
+1 block, without line 511, without grind sync solves 
+1 block, without line 511, with grynd sync (760) still works
+
+8 blocks, with 511, with grynd sync no problem with iterations
+
+Jan 29th, Yana:
+
+cleaning all debug
