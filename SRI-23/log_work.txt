@@ -46,3 +46,34 @@ Update Shur:
 Jan 29th, Yana:
 
 cleaning all debug
+
+Feb 15:
+
+- line 601 : why copy2 is different from copy::glass?
+- solve_leaf (is it better to pass constants/can we make them global vars?)
+- copy2 works line 636 but not 625
+
+*** SOLVE_LEAF***
+  overwrites F_lambda for indx=0, for others F_state, F_input, d,q,r, F_prev (not ind=0)
+  copies seem fine
+***
+
+**beginnig of the loop copying from RAM**
+need to figure out better way with 2^smth /i 
+otherwise looks fine for now
+
+After beginning shouldn't need to copy anything
+
+Factor_inner question about C2,F2?
+
+Solve_Cholesky_fact no questions
+
+loops can be better (line 800)
+
+end of matrix loop (should copy to ram every level not just level higher), block.sync() seems to be weird
+
+!!!!!!!!!!for the soln vector loop:
+ - factor_innerProduct_sol doesn't need any copying from RAM (just uses A_B)
+
+ - cholSolve_InPlace needs s_F_lambda
+ -update_Schur needs s_F_state, s_F_input and s_F_lambda, updates s_F_lambda)

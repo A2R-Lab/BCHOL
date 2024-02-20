@@ -80,7 +80,6 @@ __device__ void solveLeaf(int *s_levels,
     glass::copy<float>(nstates * nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
 
     // dont need to coz we initialized with 0s set_const(nstates*nstates,0, s_F_state);
-    set_const<float>(nstates * nstates, 0.0, s_F_state);
     glass::copy<float>(nstates * ninputs, 1.0, B, F_input); // copy  B_0
     chol_InPlace<float>(ninputs, R);
     cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); // Fu = R\B
