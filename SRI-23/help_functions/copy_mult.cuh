@@ -1,5 +1,6 @@
-#include <cstdint>
+#pragma once
 #include <cooperative_groups.h>
+#include <stdint.h>
 namespace cgrps = cooperative_groups;
 
 //can use to copy soln vector s_q_r and s_d

@@ -77,3 +77,8 @@ end of matrix loop (should copy to ram every level not just level higher), block
 
  - cholSolve_InPlace needs s_F_lambda
  -update_Schur needs s_F_state, s_F_input and s_F_lambda, updates s_F_lambda)
+
+ Feb 20:
+
+ pointer of d_F_state: 0x7ff4a7e02000, 140688765231104,
+ pointer of s_F_state: 0x7ff4ce001bc0, 140689404861376
