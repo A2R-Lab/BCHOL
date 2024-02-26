@@ -82,3 +82,8 @@ end of matrix loop (should copy to ram every level not just level higher), block
 
  pointer of d_F_state: 0x7ff4a7e02000, 140688765231104,
  pointer of s_F_state: 0x7ff4ce001bc0, 140689404861376
+
+
+ Feb 27:
+
+ when adding block.sync() after copying to RAM the solution breaks

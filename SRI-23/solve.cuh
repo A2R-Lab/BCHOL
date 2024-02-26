@@ -7,12 +7,9 @@
 #include "./help_functions/print_debug.cuh"
 #include "./help_functions/nested_dissect.cuh"
 
-
 __device__ const bool DEBUG = true;
 __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
-
-
 
 namespace cgrps = cooperative_groups;
 /** @brief builds the binary tree into an array form
@@ -176,7 +173,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   }
   grid.sync();
 
-  // update the shared ONLY of your neighbours in the future, now everything
+  // update the shared ONLY of the soln vector (factors updated later in the loop)
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
     copy2<float>((nstates + ninputs) * nhorizon, 1, d_q_r, s_q_r, nstates * nhorizon, 1, d_d, s_d);
@@ -189,12 +186,13 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     if (block_id == BLOCK && thread_id == THREAD)
     {
       printf("CHECKING DATA AFTER SOLVE LEAF");
-      printf("\nstart d_F_state %p, s_F_state %p",(void*)d_F_state,(void*)s_F_state);
+      printf("\nstart d_F_state %p, s_F_state %p", (void *)d_F_state, (void *)s_F_state);
       print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
                        d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
     }
     block.sync();
   }
+
   // using only numleaves blocks (two timesteps per block)
   for (uint32_t level = 0; level < depth; level++)
   {
@@ -205,7 +203,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       uint32_t ind = s_tree_result[b_id];
       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
       {
-        
+
         // copy F_lambda of ind and of ind+1
         // copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
         //              s_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
@@ -220,8 +218,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                     s_F_state + (states_sq * (cur_level * nhorizon + ind)));
         glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
                     s_F_input + (inp_states * (cur_level * nhorizon + ind)));
-        
-        
+
         // copying ind+1
         uint32_t next_ind = ind + 1;
         // copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
@@ -232,24 +229,24 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         //              s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
 
         glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
-                    s_F_lambda+ (states_sq * (cur_level * nhorizon + next_ind)));
+                    s_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)));
         glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
                     s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
         glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
                     s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
         block.sync();
-        if (!DEBUG)
-        {
-          if (block_id == BLOCK && thread_id == THREAD)
-          {
-           
-            printf("CHECKING DATA AFTER SOLVE LEAF2");
-            print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                             d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-          }
-          block.sync();
-        }
       }
+    }
+    if (!DEBUG)
+    {
+      if (block_id == BLOCK && thread_id == THREAD)
+      {
+
+        printf("CHECKING DATA AFTER COPY TO SHARED, level %d", level);
+        print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
+                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+      }
+      block.sync();
     }
 
     uint32_t numleaves = pow(2.0, (depth - level - 1));
@@ -272,9 +269,12 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     {
       if (block_id == BLOCK && thread_id == THREAD)
       {
+
+        printf("CHECKING DATA AFTER factorInner, level %d", level);
         print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                             d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
       }
+      block.sync();
     }
 
     // Cholesky factorization
@@ -285,16 +285,17 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       float *S = s_F_lambda + (states_sq * (lin_ind + 1));
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
     }
-
+    // check after Chol_inPlace
     if (!DEBUG)
     {
       if (block_id == BLOCK && thread_id == THREAD)
       {
+        printf("CHECKING DATA AFTER chol_inPlace, level %d", level);
         print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                             d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
       }
+      block.sync();
     }
-
     // Solve with Cholesky factor for f
     uint32_t upper_levels = cur_depth - 1;
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
@@ -309,15 +310,19 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                                    nstates, ninputs, nhorizon);
       }
     }
-
+    // check after solve_chole
     if (!DEBUG)
     {
       if (block_id == BLOCK && thread_id == THREAD)
       {
+
+        printf("CHECKING DATA AFTER solve_chol, level %d", level);
         print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                             d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
       }
+      block.sync();
     }
+
     // Solve updateShur
     uint32_t num_factors = nhorizon * upper_levels;
     uint32_t num_perblock = num_factors / numleaves;
@@ -335,14 +340,17 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                           calc_lambda, nstates, ninputs, nhorizon);
       }
     }
-
-    if (DEBUG)
+    // check after update_schur
+    if (!DEBUG)
     {
       if (block_id == BLOCK && thread_id == THREAD)
       {
+
+        printf("CHECKING DATA AFTER update_schur, level %d", level);
         print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                             d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
       }
+      block.sync();
     }
 
     // sanity check that we are done with the loop
@@ -355,7 +363,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
       uint32_t ind = s_tree_result[b_id];
-      for (uint32_t up_level = level+1; up_level < depth; up_level++)
+      for (uint32_t up_level = level + 1; up_level < depth; up_level++)
       {
         // copy F_lambda of ind and of ind+1
         glass::copy(states_sq, s_F_lambda + (states_sq * (up_level * nhorizon + ind)),
@@ -374,7 +382,23 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                     d_F_input + (inp_states * (up_level * nhorizon + next_ind)));
       }
     }
+
+    // check after copy to RAM
+    if (!DEBUG)
+    {
+      if (block_id == BLOCK && thread_id == THREAD)
+      {
+
+        printf("CHECKING DATA AFTER copy to RAM, level %d", level);
+        print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
+                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+      }
+      block.sync();
+    }
   }
+
+  // do we need sync?
+  // block.sync();
 
   // solve for solution vector using the cached factorization
 
