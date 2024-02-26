@@ -354,24 +354,24 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
         {
           uint32_t ind = s_tree_result[b_id];
-          for (uint32_t up_level = level + 1; up_level < depth; up_level++)
+          for (uint32_t copy_level = level ; copy_level < depth; copy_level++)
           {
             // copy F_lambda of ind and of ind+1
-            copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (up_level * nhorizon + ind)),
-                      d_F_lambda + (states_sq * (up_level * nhorizon + ind)),
-                     states_sq, 1, s_F_state + (states_sq * (up_level * nhorizon + ind)),
-                     d_F_state + (states_sq * (up_level * nhorizon + ind)),
-                     inp_states, 1, s_F_input + (inp_states * (up_level * nhorizon + ind)),
-                      d_F_input + (inp_states * (up_level * nhorizon + ind)));
+            copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                      d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                     states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                     d_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                     inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
+                      d_F_input + (inp_states * ( copy_level * nhorizon + ind)));
 
             // copying ind+1
             uint32_t next_ind = ind + 1;
-            copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (up_level * nhorizon + next_ind)),
-                      d_F_lambda + (states_sq * (up_level * nhorizon + next_ind)),
-                     states_sq, 1, s_F_state + (states_sq * (up_level * nhorizon +next_ind)),
-                     d_F_state + (states_sq * (up_level * nhorizon + next_ind)),
-                     inp_states, 1, s_F_input + (inp_states * (up_level * nhorizon + next_ind)),
-                      d_F_input + (inp_states * (up_level * nhorizon + next_ind)));
+            copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
+                      d_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
+                     states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon +next_ind)),
+                     d_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
+                     inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
+                      d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
           }
         }
         block.sync();
