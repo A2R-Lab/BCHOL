@@ -22,13 +22,40 @@ __host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
     }
 }
 
+/** @brief Checks that two 1D arrays are the same
+ * @param T *array_a - pointer to the first array
+ * @param T *array_b - pointer to the second array
+ * @param uint32_t size - number of elements in each array
+ */
+template <typename T>
+__host__ __device__ bool checkEquality(T *array_a, T *array_b, uint32_t size)
+{
+    uint32_t ind = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (ind < size) {
+        T x = array_a[ind];
+        T y = array_b[ind];
+
+        // Check for NaN values
+        if (isnan(x) || isnan(y))
+            return false;
+
+        // Check for equality within a tolerance
+        T d = abs(x - y);
+        if (d > 0.001)
+            return false;
+    }
+
+    return true;
+}
+
 /** @brief Checks that two matrices are the same
  * @param T *matrix - pointer to the stored matrix
  * @param uint32 rows - number of rows in matrix
  * @param uint32 columns - number of columns
  * */
 template <typename T>
-__host__ __device__ bool checkEquallity(T *matrix_a, T *matrix_b, uint32_t n)
+__host__ __device__ bool checkEquallity_mine(T *matrix_a, T *matrix_b, uint32_t n)
 {
     uint32_t ind = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     uint32_t stride = blockDim.x * blockDim.y * blockDim.z;
