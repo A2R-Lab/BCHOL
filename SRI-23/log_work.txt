@@ -87,3 +87,36 @@ end of matrix loop (should copy to ram every level not just level higher), block
  Feb 27:
 
  when adding block.sync() after copying to RAM the solution breaks
+
+ copy3 doesn't work for many blocks!
+
+ checking ram&shared with 1 block and copy3
+
+ s_F_state #9 not copied correctly
+ s_F_state #10 not copied correctly
+ s_F_state #11 not copied
+
+ checking tam&shared with 1 block copy single, level+1
+
+ Mar 28th
+1st hour -  reviewing the existing problems
+
+total amount of shared used: 
+
+
+amount of shared needed for LQR problem:
+2nhorizons*states^2+nhorizon*inp^2+nhorizon*inp+2nhorizons*states+mhorizon*(inp*state)
+
+amount of shared for Factorization:
+2(nhorizon*depth)states^2+nhorizon*depth*inp_states
+
+amount of shared for helper:
+states_sq+2nhorizons
+
+TOTAL:
+
+
+CHANGE MAKE so it updates everytime any small function changes
+USE error_flag
+added syncthread() everywhere pretty much in Solve_leaf
+

@@ -82,6 +82,7 @@ __device__ void solveLeaf(int *s_levels,
     // dont need to coz we initialized with 0s set_const(nstates*nstates,0, s_F_state);
     glass::copy<float>(nstates * ninputs, 1.0, B, F_input); // copy  B_0
     chol_InPlace<float>(ninputs, R);
+    __syncthreads();
     cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); // Fu = R\B
     cholSolve_InPlace<float>(R, r, false, ninputs, 1);             // zu = R\zu
 
@@ -89,9 +90,15 @@ __device__ void solveLeaf(int *s_levels,
     zy_temp = &s_F_state[nhorizon * states_sq];
     glass::copy<float>(nstates, 1.0, d, zy_temp);
     glass::copy<float>(nstates, 1.0, q, d);
+    __syncthreads();
     glass::gemv<float>(nstates, nstates, -1.0, Q, zy_temp, -1.0, d); // zy = - Q * zy - zx
+    __syncthreads();
     glass::copy<float>(nstates, -1.0, zy_temp, q);
+    __syncthreads();
     set_const<float>(nstates, 0.0, zy_temp); // initialize back to 0s
+    __syncthreads();
+
+    chol_InPlace<float>(nstates, Q);
   }
   else
   {
@@ -104,12 +111,15 @@ __device__ void solveLeaf(int *s_levels,
     {
       float *R = &s_Q_R[index * cost_step + states_sq];
       chol_InPlace<float>(ninputs, R, cgrps::this_thread_block());
+      __syncthreads();
       cholSolve_InPlace<float>(R, r, false, ninputs, 1); // zu = R \ zu
 
       glass::copy<float>(nstates * nstates, A, F_state);
+      __syncthreads();
       cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates);
 
       glass::copy<float>(ninputs * nstates, 1.0, B, F_input);
+      __syncthreads();
       cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);
     }
 
@@ -118,10 +128,10 @@ __device__ void solveLeaf(int *s_levels,
     int prev_level = s_levels[index - 1];
     float *F_state_prev = s_F_state + (index + nhorizon * prev_level) * states_sq; // prev level  F_state
     diag_Matrix_set<float>(nstates, -1.0, F_state_prev);
+    __syncthreads();
     cholSolve_InPlace<float>(Q, F_state_prev, false, nstates, nstates); // solve Q \ -I from previous time step
   }
 }
-
 
 /** @brief Calculates one of the inner products needed at current level
  *
@@ -172,6 +182,7 @@ __device__ void factorInnerProduct(T *s_A_B,
 
   dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
   dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+  __syncthreads();
   scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
 }
 
@@ -224,6 +235,7 @@ __device__ void factorInnerProduct_sol(T *s_A_B,
 
   dot_product<float>(nstates, nstates, 1, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
   dot_product<float>(nstates, ninputs, 1, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+  __syncthreads();
   scaled_sum<float>(nstates, 1, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
 }
 
