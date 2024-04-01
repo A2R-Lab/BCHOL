@@ -27,8 +27,27 @@ __host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
  * @param T *array_b - pointer to the second array
  * @param uint32_t size - number of elements in each array
  */
+__host__ __device__ bool checkEquality(float *array_a, float *array_b, uint32_t size)
+{
+    for (int i=0; i < size;i++) {
+        float x = array_a[i];
+        float y = array_b[i];
+
+        // Check for NaN values
+        if (isnan(x) || isnan(y))
+            return false;
+
+        // Check for equality within a tolerance
+        float d = abs(x - y);
+        if (d > 0.001)
+            return false;
+    }
+
+    return true;
+}
+
 template <typename T>
-__host__ __device__ bool checkEquality(T *array_a, T *array_b, uint32_t size)
+__host__ __device__ bool checkEqual_prl(T *array_a, T *array_b, uint32_t size)
 {
     uint32_t ind = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -55,7 +74,7 @@ __host__ __device__ bool checkEquality(T *array_a, T *array_b, uint32_t size)
  * @param uint32 columns - number of columns
  * */
 template <typename T>
-__host__ __device__ bool checkEquallity_mine(T *matrix_a, T *matrix_b, uint32_t n)
+__host__ __device__ bool checkEquallity_mine2(T *matrix_a, T *matrix_b, uint32_t n)
 {
     uint32_t ind = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     uint32_t stride = blockDim.x * blockDim.y * blockDim.z;
