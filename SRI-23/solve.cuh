@@ -115,32 +115,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
   }
   grid.sync();
 
-  // set to true to check solveLeaf & copying
-  if (!DEBUG)
-  {
-    if (block_id == BLOCK && thread_id == THREAD)
-    {
-      bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-      bool check_all = checkEquality(s_F_state, d_F_state, states_sq * nhorizon * depth);
-      bool check1_prl = checkEqual_prl(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-      bool check_all_prl = checkEqual_prl(s_F_state, d_F_state, states_sq * nhorizon * depth);
 
-      printf("CHECKING DATA AFTER SOLVE LEAF\n");
-      printf("fstate: check1: %d, checkall: %d,check1_prl: %d, chekallprl:%d\n", check1 ? 1 : 0, check1_prl ? 1 : 0,
-             check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
-      check1 = checkEquality(s_F_lambda + states_sq, d_F_lambda + states_sq, states_sq);
-      check_all = checkEquality(s_F_lambda, d_F_lambda, states_sq * nhorizon * depth);
-      check1_prl = checkEqual_prl(s_F_lambda + states_sq, d_F_lambda + states_sq, states_sq);
-      check_all_prl = checkEqual_prl(s_F_lambda, d_F_lambda, states_sq * nhorizon * depth);
-      printf("flambda: check1: %d, checkall: %d,check1_prl: %d, chekallprl:%d\n", check1 ? 1 : 0, check1_prl ? 1 : 0,
-             check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
-      print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                       d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-    }
-    block.sync();
-  }
-
-  // using only numleaves blocks (two timesteps per block)
   for (uint32_t level = 0; level < depth; level++)
   {
     // before processing make sure you copied all needed info from RAM
@@ -193,28 +168,29 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-      // // copy for update Shur (double copying here a LOT)
-    // if (level != depth - 1 && level != 0)
-    // {
-    //   for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
-    //   {
-    //     uint32_t num_copies = nhorizon / count;
-    //     uint32_t ind = s_tree_result[b_id];
-    //     for (uint32_t k = b_id * num_copies; k < num_copies; k++)
-    //     {
-    //       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
-    //       {
-    //         ind = k + nhorizon * level;
-    //         copy3<float>(states_sq, 1, d_F_lambda + (states_sq * ind),
-    //                      s_F_lambda + (states_sq * ind),
-    //                      states_sq, 1, d_F_state + (states_sq * ind),
-    //                      s_F_state + (states_sq * ind),
-    //                      inp_states, 1, d_F_input + (inp_states * ind),
-    //                      s_F_input + (inp_states * ind));
-    //       }
-    //     }
-    //   }
-    // }
+
+    //   // // copy for update Shur (double copying here a LOT,try to find a better way)
+    if (level != depth - 1 && level != 0)
+    {
+      for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
+      {
+        uint32_t num_copies = nhorizon / count;
+        uint32_t ind = s_tree_result[b_id];
+        for (uint32_t k = b_id * num_copies; k < num_copies; k++)
+        {
+          for (uint32_t cur_level = level; cur_level < depth; cur_level++)
+          {
+            ind = k + nhorizon * level;
+            copy3<float>(states_sq, 1, d_F_lambda + (states_sq * ind),
+                         s_F_lambda + (states_sq * ind),
+                         states_sq, 1, d_F_state + (states_sq * ind),
+                         s_F_state + (states_sq * ind),
+                         inp_states, 1, d_F_input + (inp_states * ind),
+                         s_F_input + (inp_states * ind));
+          }
+        }
+      }
+    }
 
     // Calc Inner Products in parallel
     for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
@@ -271,18 +247,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
 
         updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
                           calc_lambda, nstates, ninputs, nhorizon);
-        if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
-        {
-          int f = (index + 1) + nhorizon * upper_level;
-          int F = k + nhorizon * level;
-          int g = k + nhorizon * upper_level;
-          // printf("thread %d,t_id %d, block %d, k %d\n",thread_id,t_id,b_id,k);
-
-          printf("index/block_id: %d, F:%d, f: %d, g:%d , k: %d,level: %d, up_level:%d, calc_l:%d\n", index, F, f, g, k, level, upper_level,
-                 calc_lambda ? 1 : 0);
-          // print_step_matrix(23, s_F_lambda, s_F_state, s_F_input, nstates, ninputs);
-          // print_step_matrix(16, s_F_lambda, s_F_state, s_F_input, nstates, ninputs);
-        }
+        
         block.sync();
         // copy whatever was touched in Update Shur
         glass::copy(states_sq, s_F_lambda + (states_sq * f),
@@ -309,7 +274,8 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-
+    
+    grid.sync(); //not sure if needed
     // after finishing with the level need to rewrite from shared to RAM only upperlevels of block
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
@@ -347,25 +313,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
                      d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
       }
       block.sync();
-          if (!DEBUG)
-    {
-      if (block_id == BLOCK && thread_id == THREAD)
-      {
-        printf("CHECKING DATA AFTER COPY TO RAM, level %d\n", level);
-        bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-        bool check_all = checkEquality(s_F_state, d_F_state, states_sq * nhorizon * depth);
-        bool check1_prl = checkEqual_prl(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-        bool check_all_prl = checkEqual_prl(s_F_state, d_F_state, states_sq * nhorizon * depth);
-
-        printf("fstate: check1: %d, checkall: %d,check1_prl: %d, chekallprl:%d\n", check1 ? 1 : 0, check_all ? 1 : 0,
-               check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
-        printf("CHECKING DATA AFTER copy to RAM, level %d", level);
-        print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-      }
-      block.sync();
     }
-
     // sanity check that we are done with the loop
     if (block_id == BLOCK && thread_id == THREAD)
     {
@@ -376,9 +324,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         printf("%d ", s_tree_result[i]);
       }
     }
-    }
-
-
     grid.sync(); // nt sure if needed
   }
 
