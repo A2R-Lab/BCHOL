@@ -17,16 +17,16 @@ namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
 template <typename T>
-__global__ void solve_Kernel(uint32_t nhorizon,
-                             uint32_t ninputs,
-                             uint32_t nstates,
-                             T *d_Q_R,
-                             T *d_q_r,
-                             T *d_A_B,
-                             T *d_d,
-                             T *d_F_lambda,
-                             T *d_F_state,
-                             T *d_F_input)
+__global__ void solve_Kernel_t(uint32_t nhorizon,
+                               uint32_t ninputs,
+                               uint32_t nstates,
+                               T *d_Q_R,
+                               T *d_q_r,
+                               T *d_A_B,
+                               T *d_d,
+                               T *d_F_lambda,
+                               T *d_F_state,
+                               T *d_F_input)
 
 {
   // block/threads initialization
@@ -145,6 +145,14 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   {
     // before processing make sure you copied all needed info from RAM
     uint32_t count = getValuesAtLevel(nhorizon, s_levels, level, s_tree_result);
+    uint32_t numleaves = pow(2.0, (depth - level - 1));
+    uint32_t cur_depth = depth - level;
+    // NEW
+    uint32_t upper_levels = cur_depth - 1;
+    uint32_t num_factors = nhorizon * upper_levels;
+    uint32_t num_perblock = num_factors / numleaves;
+
+    // COPY
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
       uint32_t ind = s_tree_result[b_id];
@@ -153,73 +161,60 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         atomicExch(&error_flag, 1);
         return;
       }
+      // copy the timestep at level 0 for factor_inner
+      copy3<float>(states_sq, 1, d_F_lambda + (states_sq * ind),
+                   s_F_lambda + (states_sq * ind),
+                   states_sq, 1, d_F_state + (states_sq * ind),
+                   s_F_state + (states_sq * ind),
+                   inp_states, 1, d_F_input + (inp_states * ind),
+                   s_F_input + (inp_states * ind));
+      block.sync();
       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
       {
-
-        // copy F_lambda of ind and of ind+1
-        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
-                    s_F_lambda + (states_sq * (cur_level * nhorizon + ind)));
-        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
-                    s_F_state + (states_sq * (cur_level * nhorizon + ind)));
-        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
-                    s_F_input + (inp_states * (cur_level * nhorizon + ind)));
-        // PROBLEM WITH COPY3 copying second var
-        // copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
-        //              s_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
-        //              inp_states, 1, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
-        //              s_F_input + (inp_states * (cur_level * nhorizon + ind)),
-        //              states_sq, 1, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
-        //              s_F_state + (states_sq * (cur_level * nhorizon + ind)));
-
-        // copying ind+1
+        // copy ind and ind+ 1 for current level and upper levels
+        if (level != 0)
+        {
+          copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
+                       s_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
+                       states_sq, 1, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
+                       s_F_state + (states_sq * (cur_level * nhorizon + ind)),
+                       inp_states, 1, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
+                       s_F_input + (inp_states * (cur_level * nhorizon + ind)));
+        }
+        // copy next_ind
         uint32_t next_ind = ind + 1;
-        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
-                    s_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)));
-        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
-                    s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
-        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
-                    s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
-        // copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
-        //              s_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
-        //              inp_states, 1, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
-        //              s_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
-        //               states_sq, 1, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
-        //              s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
+        copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
+                     s_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
+                     states_sq, 1, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
+                     s_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
+                     inp_states, 1, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
+                     s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
       }
       block.sync();
     }
+      // // copy for update Shur (double copying here a LOT)
+    // if (level != depth - 1 && level != 0)
+    // {
+    //   for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
+    //   {
+    //     uint32_t num_copies = nhorizon / count;
+    //     uint32_t ind = s_tree_result[b_id];
+    //     for (uint32_t k = b_id * num_copies; k < num_copies; k++)
+    //     {
+    //       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
+    //       {
+    //         ind = k + nhorizon * level;
+    //         copy3<float>(states_sq, 1, d_F_lambda + (states_sq * ind),
+    //                      s_F_lambda + (states_sq * ind),
+    //                      states_sq, 1, d_F_state + (states_sq * ind),
+    //                      s_F_state + (states_sq * ind),
+    //                      inp_states, 1, d_F_input + (inp_states * ind),
+    //                      s_F_input + (inp_states * ind));
+    //       }
+    //     }
+    //   }
+    // }
 
-    if (!DEBUG)
-    {
-      if (block_id == BLOCK && thread_id == THREAD)
-      {
-
-        printf("CHECKING DATA AFTER COPY TO SHARED, level %d\n", level);
-        bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-        bool check_all = checkEquality(s_F_state, d_F_state, states_sq * nhorizon * depth);
-        bool check1_prl = checkEqual_prl(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-        bool check_all_prl = checkEqual_prl(s_F_state, d_F_state, states_sq * nhorizon * depth);
-
-        printf("fstate: check1: %d, checkall: %d,check1_prl: %d, chekallprl:%d\n", check1 ? 1 : 0, check_all ? 1 : 0,
-               check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
-        if (check1 == false)
-          print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                           d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-        check1 = checkEquality(s_F_lambda + states_sq, d_F_lambda + states_sq, states_sq);
-        check_all = checkEquality(s_F_lambda, d_F_lambda, states_sq * nhorizon * depth);
-        check1_prl = checkEqual_prl(s_F_lambda + states_sq, d_F_lambda + states_sq, states_sq);
-        check_all_prl = checkEqual_prl(s_F_lambda, d_F_lambda, states_sq * nhorizon * depth);
-        printf("flambda: check1: %d, checkall: %d,check1_prl: %d, chekallprl:%d\n", check1 ? 1 : 0, check_all ? 1 : 0,
-               check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
-        // if (!check_all)
-        //   print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-        //                    d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-      }
-      block.sync();
-    }
-
-    uint32_t numleaves = pow(2.0, (depth - level - 1));
-    uint32_t cur_depth = depth - level;
     // Calc Inner Products in parallel
     for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
     {
@@ -232,18 +227,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
       }
     }
-    // set to true to check factorInner
-    if (!DEBUG)
-    {
-      if (block_id == BLOCK && thread_id == THREAD)
-      {
-
-        printf("CHECKING DATA AFTER factorInner, level %d", level);
-        print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-      }
-      block.sync();
-    }
     // Cholesky factorization
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim)
     {
@@ -253,20 +236,9 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
       block.sync();
     }
-    // check after Chol_inPlace
-    if (!DEBUG)
-    {
-      if (block_id == BLOCK && thread_id == THREAD)
-      {
-        printf("CHECKING DATA AFTER chol_inPlace, level %d", level);
-        print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                         d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-      }
-      block.sync();
-    }
 
     // Solve with Cholesky factor for f
-    uint32_t upper_levels = cur_depth - 1;
+    // uint32_t upper_levels = cur_depth - 1;
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
       for (uint32_t t_id = 0; t_id < upper_levels; t_id += 1)
@@ -281,9 +253,8 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       block.sync();
     }
 
-    // Solve updateShur
-    uint32_t num_factors = nhorizon * upper_levels;
-    uint32_t num_perblock = num_factors / numleaves;
+    // // Solve updateShur
+
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
       for (uint32_t t_id = 0; t_id < num_perblock; t_id += 1)
@@ -291,11 +262,49 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         int i = (b_id * 4) + t_id;
         int k = i / upper_levels;
         uint32_t upper_level = level + 1 + (i % upper_levels);
-
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
+        int f = (index + 1) + nhorizon * upper_level;
+        int F = k + nhorizon * level;
+        int g = k + nhorizon * upper_level;
+
         updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
                           calc_lambda, nstates, ninputs, nhorizon);
+        if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
+        {
+          int f = (index + 1) + nhorizon * upper_level;
+          int F = k + nhorizon * level;
+          int g = k + nhorizon * upper_level;
+          // printf("thread %d,t_id %d, block %d, k %d\n",thread_id,t_id,b_id,k);
+
+          printf("index/block_id: %d, F:%d, f: %d, g:%d , k: %d,level: %d, up_level:%d, calc_l:%d\n", index, F, f, g, k, level, upper_level,
+                 calc_lambda ? 1 : 0);
+          // print_step_matrix(23, s_F_lambda, s_F_state, s_F_input, nstates, ninputs);
+          // print_step_matrix(16, s_F_lambda, s_F_state, s_F_input, nstates, ninputs);
+        }
+        block.sync();
+        // copy whatever was touched in Update Shur
+        glass::copy(states_sq, s_F_lambda + (states_sq * f),
+                    d_F_lambda + (states_sq * f));
+        glass::copy(states_sq, s_F_state + (states_sq * f),
+                    d_F_state + (states_sq * f));
+        glass::copy(inp_states, s_F_input + (inp_states * f),
+                    d_F_input + (inp_states * f));
+        // // copy F
+        glass::copy(states_sq, s_F_lambda + (states_sq * F),
+                    d_F_lambda + (states_sq * F));
+        glass::copy(states_sq, s_F_state + (states_sq * F),
+                    d_F_state + (states_sq * F));
+        glass::copy(inp_states, s_F_input + (inp_states * F),
+                    d_F_input + (inp_states * F));
+        // copy g
+        glass::copy(states_sq, s_F_lambda + (states_sq * g),
+                    d_F_lambda + (states_sq * g));
+        glass::copy(states_sq, s_F_state + (states_sq * g),
+                    d_F_state + (states_sq * g));
+        glass::copy(inp_states, s_F_input + (inp_states * g),
+                    d_F_input + (inp_states * g));
+        block.sync();
       }
       block.sync();
     }
@@ -309,42 +318,35 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         atomicExch(&error_flag, 1);
         return;
       }
+      // copy the timestep at level 0 for factor_inner
+      copy3<float>(states_sq, 1, s_F_lambda + (states_sq * ind),
+                     d_F_lambda + (states_sq * ind),
+                     states_sq, 1, s_F_state + (states_sq * ind),
+                     d_F_state + (states_sq * ind),
+                     inp_states, 1, s_F_input + (inp_states * ind),
+                     d_F_input + (inp_states *  ind));
+
       for (uint32_t copy_level = level; copy_level < depth; copy_level++)
       {
-        // copy F_lambda of ind and of ind+1
-        glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-                    d_F_lambda + (states_sq * (copy_level * nhorizon + ind)));
-        glass::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
-                    d_F_state + (states_sq * (copy_level * nhorizon + ind)));
-        glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
-                    d_F_input + (inp_states * (copy_level * nhorizon + ind)));
-        // copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-        //              d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-        //              states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
-        //              d_F_state + (states_sq * (copy_level * nhorizon + ind)),
-        //              inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
-        //              d_F_input + (inp_states * (copy_level * nhorizon + ind)));
-        block.sync();
+        if(level!=0) {
+        copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                     d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                     states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                     d_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                     inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
+                     d_F_input + (inp_states * (copy_level * nhorizon + ind)));
+        }
         // copying ind+1
         uint32_t next_ind = ind + 1;
-        glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
-                    d_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)));
-        glass::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
-                    d_F_state + (states_sq * (copy_level * nhorizon + next_ind)));
-        glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
-                    d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
-        // copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
-        //              d_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
-        //              states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
-        //              d_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
-        //              inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
-        //              d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
+        copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
+                     d_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
+                     states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
+                     d_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
+                     inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
+                     d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
       }
       block.sync();
-    }
-
-    // check after copy to RAM
-    if (!DEBUG)
+          if (!DEBUG)
     {
       if (block_id == BLOCK && thread_id == THREAD)
       {
@@ -373,6 +375,9 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         printf("%d ", s_tree_result[i]);
       }
     }
+    }
+
+
     grid.sync(); // nt sure if needed
   }
 
@@ -380,7 +385,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   {
     if (block_id == BLOCK && thread_id == THREAD)
     {
-      printf("CHECKING DATA AFTER LOOP level\n");
+      // printf("CHECKING DATA AFTER LOOP level\n");
       bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
       bool check_all = checkEquality(s_F_state, d_F_state, states_sq * nhorizon * depth);
       bool check1_prl = checkEqual_prl(s_F_state + states_sq, d_F_state + states_sq, states_sq);
@@ -390,20 +395,9 @@ __global__ void solve_Kernel(uint32_t nhorizon,
              check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
       if (!check1 || !check_all)
         printf("ERROR!! FSTATE!");
-
-      check1 = checkEquality(s_F_lambda + states_sq, d_F_lambda + states_sq, states_sq);
-      check_all = checkEquality(s_F_lambda, d_F_lambda, states_sq * nhorizon * depth);
-      printf("flambda: check1: %d, checkall: %d\n", check1 ? 1 : 0, check_all ? 1 : 0);
-      if (!check1 || !check_all)
-        printf("ERROR!! FLAMBDA!");
-
-      check_all = checkEquality(s_F_input, d_F_input, inp_states * nhorizon * depth);
-      printf("flambda:  checkall: %d\n",check_all ? 1 : 0);
-      if (!check_all)
-        printf("ERROR!! FINPUT!");
-
-
       printf("CHECKING DATA AFTER loop");
+      // print_KKT(d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon,
+      //           depth, nstates, ninputs);
       print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
                        d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
     }

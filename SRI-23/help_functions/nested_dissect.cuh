@@ -13,6 +13,7 @@
 #include "./set_const.cuh"
 #include "./dot_product.cuh"
 #include "./scaled_sum.cuh"
+#include "./print_debug.cuh"
 
 /** @brief Solve all the equations for the lower-level diagonal blocks, by timestep.
  * * For and LQR problem, it calculates
@@ -393,7 +394,6 @@ __device__ void updateShur(T *fact_state,
   glass::gemm<float, 0>(nstates, nstates, nstates, -1.0, F_state, f, 1.0, g_state, cgrps::this_thread_block());
   glass::gemm<float, 0>(ninputs, nstates, nstates, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
 }
-
 /** @brief Calculates \f$ x \f$ and \f$ z \f$ to complete the factorization at the current
  *        level for solution vector instead of factorization matrices
  *

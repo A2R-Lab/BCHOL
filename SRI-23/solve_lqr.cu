@@ -287,7 +287,7 @@ __host__ int main()
   std::uint32_t blockSize = 256;
   std::uint32_t gridSize = 1;
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
-  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel<float>);
+  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel_t<float>);
   void *args[] = {// prepare the kernel arguments
                   &nhorizon,
                   &ninputs,
@@ -318,8 +318,9 @@ __host__ int main()
     printf("launched successfully\n");
   }
   cudaDeviceSynchronize();
-  cudaStatus = cudaGetLastError();  // Check for memory usage errors
-  if (cudaStatus != cudaSuccess) {
+  cudaStatus = cudaGetLastError(); // Check for memory usage errors
+  if (cudaStatus != cudaSuccess)
+  {
     fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(cudaStatus));
     return 1;
   }
