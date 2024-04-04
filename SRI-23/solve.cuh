@@ -159,6 +159,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       if (ind == -1)
       {
         atomicExch(&error_flag, 1);
+        printf("BUG!\n");
         return;
       }
       // copy the timestep at level 0 for factor_inner
