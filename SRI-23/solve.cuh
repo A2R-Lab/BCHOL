@@ -14,6 +14,7 @@ __device__ int error_flag = 0;
 
 namespace cgrps = cooperative_groups;
 
+
 /** @brief The rsLQR solver, the main function of the solver
  */
 template <typename T>
@@ -106,8 +107,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
     }
   }
-
-  grid.sync();
+  
   // update the shared ONLY of the soln vector (factors updated in main loop)
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
@@ -115,7 +115,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
   }
   grid.sync();
 
-
+  //no NANs at this point
   for (uint32_t level = 0; level < depth; level++)
   {
     // before processing make sure you copied all needed info from RAM
@@ -191,7 +191,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         }
       }
     }
-
     // Calc Inner Products in parallel
     for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
     {
@@ -204,6 +203,8 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
       }
     }
+    block.sync();
+    
     // Cholesky factorization
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim)
     {
@@ -229,9 +230,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-
-    // // Solve updateShur
-
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
       for (uint32_t t_id = 0; t_id < num_perblock; t_id += 1)
@@ -274,8 +272,8 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-    
-    grid.sync(); //not sure if needed
+
+    grid.sync(); // not sure if needed
     // after finishing with the level need to rewrite from shared to RAM only upperlevels of block
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
@@ -287,21 +285,22 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       // copy the timestep at level 0 for factor_inner
       copy3<float>(states_sq, 1, s_F_lambda + (states_sq * ind),
-                     d_F_lambda + (states_sq * ind),
-                     states_sq, 1, s_F_state + (states_sq * ind),
-                     d_F_state + (states_sq * ind),
-                     inp_states, 1, s_F_input + (inp_states * ind),
-                     d_F_input + (inp_states *  ind));
+                   d_F_lambda + (states_sq * ind),
+                   states_sq, 1, s_F_state + (states_sq * ind),
+                   d_F_state + (states_sq * ind),
+                   inp_states, 1, s_F_input + (inp_states * ind),
+                   d_F_input + (inp_states * ind));
 
       for (uint32_t copy_level = level; copy_level < depth; copy_level++)
       {
-        if(level!=0) {
-        copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-                     d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-                     states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
-                     d_F_state + (states_sq * (copy_level * nhorizon + ind)),
-                     inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
-                     d_F_input + (inp_states * (copy_level * nhorizon + ind)));
+        if (level != 0)
+        {
+          copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                       d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                       states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                       d_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                       inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
+                       d_F_input + (inp_states * (copy_level * nhorizon + ind)));
         }
         // copying ind+1
         uint32_t next_ind = ind + 1;
