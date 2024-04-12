@@ -8,6 +8,7 @@
 #include "./help_functions/nested_dissect.cuh"
 #include "./help_functions/tree_functs.cuh"
 __device__ const bool DEBUG = true;
+__device__ const bool SAFE_MOOD = true;
 __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
@@ -17,16 +18,16 @@ namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
 template <typename T>
-__global__ void solve_Kernel(uint32_t nhorizon,
-                             uint32_t ninputs,
-                             uint32_t nstates,
-                             T *d_Q_R,
-                             T *d_q_r,
-                             T *d_A_B,
-                             T *d_d,
-                             T *d_F_lambda,
-                             T *d_F_state,
-                             T *d_F_input)
+__global__ void solve_Kernel_t(uint32_t nhorizon,
+                               uint32_t ninputs,
+                               uint32_t nstates,
+                               T *d_Q_R,
+                               T *d_q_r,
+                               T *d_A_B,
+                               T *d_d,
+                               T *d_F_lambda,
+                               T *d_F_state,
+                               T *d_F_input)
 
 {
   // block/threads initialization
@@ -66,6 +67,20 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   initializeBSTLevels(nhorizon, s_levels);
   block.sync();
 
+  if (!DEBUG && block_id == BLOCK)
+  {
+    int n = 3;
+    float h_A[9] = {
+        6, 15, 55,
+        15, 55, 225,
+        55, 225, 979};
+    chol_InPlace<float>(n, h_A, cgrps::this_thread_block());
+    block.sync();
+
+    if (block_id == BLOCK && thread_id == THREAD)
+      printMatrix(h_A, 3, 3);
+  }
+
   // should solveLeaf in parallel, each block per time step
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
@@ -99,33 +114,40 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       if (ind < nhorizon - 1)
       {
         // copy cur_F_state + cur_F_input
-        copy2<float>(states_sq, 1, s_F_state + +(states_sq * (cur_level * nhorizon + ind)),
-                     d_F_state + (states_sq * (cur_level * nhorizon + ind)),
-                     inp_states, 1, s_F_input + (inp_states * (cur_level * nhorizon + ind)),
-                     d_F_input + (inp_states * (cur_level * nhorizon + ind)));
+        copy2<float>(inp_states, 1, s_F_input + (inp_states * (cur_level * nhorizon + ind)),
+                     d_F_input + (inp_states * (cur_level * nhorizon + ind)),
+                     states_sq, 1, s_F_state + +(states_sq * (cur_level * nhorizon + ind)),
+                     d_F_state + (states_sq * (cur_level * nhorizon + ind)));
       }
     }
   }
-  grid.sync();
 
-  // update the shared ONLY of the soln vector (factors updated later in the loop)
+  // update the shared ONLY of the soln vector (factors updated in main loop)
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
     copy2<float>((nstates + ninputs) * nhorizon, 1, d_q_r, s_q_r, nstates * nhorizon, 1, d_d, s_d);
   }
   grid.sync();
 
-  // using only numleaves blocks (two timesteps per block)
   for (uint32_t level = 0; level < depth; level++)
   {
     // before processing make sure you copied all needed info from RAM
     uint32_t count = getValuesAtLevel(nhorizon, s_levels, level, s_tree_result);
+    uint32_t numleaves = pow(2.0, (depth - level - 1));
+    uint32_t cur_depth = depth - level;
+    // NEW
+    uint32_t upper_levels = cur_depth - 1;
+    uint32_t num_factors = nhorizon * upper_levels;
+    uint32_t num_perblock = num_factors / numleaves;
+
+    // COPY
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
       uint32_t ind = s_tree_result[b_id];
       if (ind == -1)
       {
         atomicExch(&error_flag, 1);
+        printf("BUG!\n");
         return;
       }
       // copy the timestep at level 0 for factor_inner
@@ -152,59 +174,15 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         uint32_t next_ind = ind + 1;
         copy3<float>(states_sq, 1, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
                      s_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
-                     states_sq, 1, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
-                     s_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
                      inp_states, 1, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
-                     s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
+                     s_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
+                     states_sq, 1, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
+                     s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
       }
       block.sync();
     }
 
-    uint32_t numleaves = pow(2.0, (depth - level - 1));
-    uint32_t cur_depth = depth - level;
-
-    // Calc Inner Products in parallel
-    for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
-    {
-      for (uint32_t t_ind = 0; t_ind < cur_depth; t_ind += 1)
-      {
-        uint32_t ind = b_ind * cur_depth + t_ind;
-        uint32_t leaf = ind / cur_depth;
-        uint32_t upper_level = level + (ind % cur_depth);
-        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
-      }
-    }
-
-    // Cholesky factorization
-
-    for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim)
-    {
-      uint32_t index = pow(2.0, level) * (2 * leaf + 1) - 1;
-      uint32_t lin_ind = index + nhorizon * level;
-      float *S = s_F_lambda + (states_sq * (lin_ind + 1));
-      chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
-      block.sync();
-    }
-
-    // Solve with Cholesky factor for f
-    uint32_t upper_levels = cur_depth - 1;
-    for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
-    {
-      for (uint32_t t_id = 0; t_id < upper_levels; t_id += 1)
-      {
-        uint32_t i = b_id * upper_levels + t_id;
-        uint32_t leaf = i / upper_levels;
-        uint32_t upper_level = level + 1 + (i % upper_levels);
-        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-        SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level,
-                                   nstates, ninputs, nhorizon);
-        block.sync();
-      }
-      block.sync();
-    }
-
-    // copy for update Shur (double copying here a LOT)
+    //   // // copy for update Shur (double copying here a LOT,try to find a better way)
     if (level != depth - 1 && level != 0)
     {
       for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
@@ -226,10 +204,90 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         }
       }
     }
+    //not copying F_STATE!
+    if(DEBUG&&block_id==BLOCK&&thread_id==THREAD){
+      printf("Pre-loop check for block %d\n",block_id);
+       print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
+                       d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+    }
+    // Calc Inner Products in parallel
+    for (uint32_t b_ind = block_id; b_ind < numleaves; b_ind += grid_dim)
+    {
+      for (uint32_t t_ind = 0; t_ind < cur_depth; t_ind += 1)
+      {
+        uint32_t ind = b_ind * cur_depth + t_ind;
+        uint32_t leaf = ind / cur_depth;
+        uint32_t upper_level = level + (ind % cur_depth);
+        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
+        //debug
+        uint32_t index=lin_ind+nhorizon*upper_level;
+        uint32_t index2=(lin_ind+1)+nhorizon*upper_level;
+        if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
+      {
+        printf("Before calling Fact Inner  %d\n",lin_ind);
+        printf("F_state 1: \n");
+        printMatrix(s_F_state+index*states_sq,nstates,nstates);
+        printf("F_input 1:\n");
+        printMatrix(s_F_input+index*inp_states,ninputs,nstates);
+        printf("F_state:\n");
+        printMatrix(s_F_state+index2*states_sq,nstates,nstates);
+        printf("F_lambda\n");
+        printMatrix(s_F_lambda+index2*states_sq, nstates, nstates);
+      }
+      block.sync();
+        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+        if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
+      {
+        printf("After calling Fact Inner\n");
+        printMatrix(s_F_lambda+(states_sq), nstates, nstates);
+      }
+      block.sync();
+      }
+    }
+    block.sync();
+    if (!DEBUG&&block_id == BLOCK && thread_id == THREAD)
+    {
+      print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
+                       d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
+    }
+    block.sync();
 
-    // Solve updateShur
-    uint32_t num_factors = nhorizon * upper_levels;
-    uint32_t num_perblock = num_factors / numleaves;
+    // // Cholesky factorization
+    for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim)
+    {
+      uint32_t index = pow(2.0, level) * (2 * leaf + 1) - 1;
+      uint32_t lin_ind = index + nhorizon * level;
+      float *S = s_F_lambda + (states_sq * (lin_ind + 1));
+      if (SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
+      {
+        printf("Before calling Chol\n");
+        printMatrix(S, nstates, nstates);
+      }
+      block.sync();
+      chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
+      if (SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
+      {
+        printf("After calling Chol\n");
+        printMatrix(S, nstates, nstates);
+      }
+      block.sync();
+    }
+
+    // Solve with Cholesky factor for f
+    // uint32_t upper_levels = cur_depth - 1;
+    for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
+    {
+      for (uint32_t t_id = 0; t_id < upper_levels; t_id += 1)
+      {
+        uint32_t i = b_id * upper_levels + t_id;
+        uint32_t leaf = i / upper_levels;
+        uint32_t upper_level = level + 1 + (i % upper_levels);
+        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
+        SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level,
+                                   nstates, ninputs, nhorizon);
+      }
+      block.sync();
+    }
     for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
       for (uint32_t t_id = 0; t_id < num_perblock; t_id += 1)
@@ -237,7 +295,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         int i = (b_id * 4) + t_id;
         int k = i / upper_levels;
         uint32_t upper_level = level + 1 + (i % upper_levels);
-
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
         int f = (index + 1) + nhorizon * upper_level;
@@ -247,6 +304,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
                           calc_lambda, nstates, ninputs, nhorizon);
 
+        block.sync();
         // copy whatever was touched in Update Shur
         glass::copy(states_sq, s_F_lambda + (states_sq * f),
                     d_F_lambda + (states_sq * f));
@@ -273,17 +331,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       block.sync();
     }
 
-    // sanity check that we are done with the loop
-    if (block_id == BLOCK && thread_id == THREAD)
-    {
-      printf("done with the loop!\n");
-      printf("count %d\n", count);
-      for (int i = 0; i < nhorizon; i++)
-      {
-        printf("%d ", s_tree_result[i]);
-      }
-    }
-
+    grid.sync(); // not sure if needed
     // after finishing with the level need to rewrite from shared to RAM only upperlevels of block
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
@@ -295,21 +343,22 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       }
       // copy the timestep at level 0 for factor_inner
       copy3<float>(states_sq, 1, s_F_lambda + (states_sq * ind),
-                     d_F_lambda + (states_sq * ind),
-                     states_sq, 1, s_F_state + (states_sq * ind),
-                     d_F_state + (states_sq * ind),
-                     inp_states, 1, s_F_input + (inp_states * ind),
-                     d_F_input + (inp_states *  ind));
+                   d_F_lambda + (states_sq * ind),
+                   states_sq, 1, s_F_state + (states_sq * ind),
+                   d_F_state + (states_sq * ind),
+                   inp_states, 1, s_F_input + (inp_states * ind),
+                   d_F_input + (inp_states * ind));
 
       for (uint32_t copy_level = level; copy_level < depth; copy_level++)
       {
-        if(level!=0) {
-        copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-                     d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-                     states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
-                     d_F_state + (states_sq * (copy_level * nhorizon + ind)),
-                     inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
-                     d_F_input + (inp_states * (copy_level * nhorizon + ind)));
+        if (level != 0)
+        {
+          copy3<float>(states_sq, 1, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                       d_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                       states_sq, 1, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                       d_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                       inp_states, 1, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
+                       d_F_input + (inp_states * (copy_level * nhorizon + ind)));
         }
         // copying ind+1
         uint32_t next_ind = ind + 1;
@@ -322,18 +371,25 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       }
       block.sync();
     }
+    // sanity check that we are done with the loop
+    if (block_id == BLOCK && thread_id == THREAD)
+    {
+      printf("done with the loop!\n");
+      printf("count %d\n", count);
+      for (int i = 0; i < nhorizon; i++)
+      {
+        printf("%d ", s_tree_result[i]);
+      }
+    }
     grid.sync(); // nt sure if needed
   }
 
-  // CHECK RAM before the soln vector
-  //  check after copy to RAM
   if (DEBUG)
   {
     if (block_id == BLOCK && thread_id == THREAD)
     {
-
-      printf("CHECKING SHARED of final loop");
-       bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
+      // printf("CHECKING DATA AFTER LOOP level\n");
+      bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
       bool check_all = checkEquality(s_F_state, d_F_state, states_sq * nhorizon * depth);
       bool check1_prl = checkEqual_prl(s_F_state + states_sq, d_F_state + states_sq, states_sq);
       bool check_all_prl = checkEqual_prl(s_F_state, d_F_state, states_sq * nhorizon * depth);
@@ -342,23 +398,16 @@ __global__ void solve_Kernel(uint32_t nhorizon,
              check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
       if (!check1 || !check_all)
         printf("ERROR!! FSTATE!");
-
-      print_KKT(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r, nhorizon, depth,
-                nstates, ninputs);
-
-      // printf("CHECKING RAM of final loop");
-      // print_KKT(d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth,
-      //           nstates, ninputs);
+      printf("CHECKING DATA AFTER loop");
+      // print_KKT(d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon,
+      //           depth, nstates, ninputs);
       print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
                        d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
     }
     block.sync();
   }
 
-
-
-  // solve for solution vector using the cached factorization
-  // HAVEN"T DONE COPYiNG TO FROM RAM FOR SOLN!!
+  // // HAVEN"T DONE COPYiNG TO FROM RAM FOR SOLN!!
   for (uint32_t level = 0; level < depth; ++level)
   {
     // print what we have in the beginning
@@ -393,27 +442,10 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                             calc_lambda, nstates, ninputs, nhorizon);
     }
     grid.sync();
-
-
-  if (DEBUG)
-  {
-    if (block_id == BLOCK && thread_id == THREAD)
-    {
-      printf("CHECK FINAL RESULTS\n");
-      for (unsigned i = 0; i < nhorizon; i++)
-      {
-        printMatrix(s_d + i * nstates, nstates, 1);
-        printMatrix(s_q_r + (i * (ninputs + nstates)), nstates, 1);
-        printMatrix(s_q_r + (i * (ninputs + nstates) + nstates), ninputs, 1);
-      }
-    }
   }
   block.sync();
-  }
-  
-  block.sync();
 
-  // move shared to ram of soln vector
+  // // move shared to ram of soln vector
   for (unsigned i = thread_id; i < (nstates + ninputs) * nhorizon; i += block_dim)
   {
     d_q_r[i] = s_q_r[i];
@@ -422,5 +454,4 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   {
     d_d[i] = s_d[i];
   }
-
 }

@@ -96,31 +96,9 @@ __global__ void check_equality_kernel(uint32_t nhorizon,
     //         printf(" ERROR Diff case failed for shared\n");
     // }
 
-    if (thread_id == THREAD && block_id == BLOCK)
-    {
-        // should show true
-        if (checkEqual_prl(s_A, s_B, size))
-            printf("Equal case passed\n");
-        else
-            printf("ERROR Equal case failed\n");
-
-        s_B[0] = 2;
-        // should show false
-        if (!checkEqual_prl(s_A, s_B, size))
-            printf("Diff case passed\n");
-        else
-            printf("ERROR Diff case failed\n");
-
-        // check cases for copied from host
-        if (checkEqual_prl(s_Q_R, s_Q_R + cost_step, cost_step))
-            printf("Equal case passed for shared\n");
-        else
-            printf("ERROR Equal case failed for shared\n");
-
-        // should show false
-        if (!checkEqual_prl(s_Q_R, s_Q_R + cost_step * (nhorizon - 1), cost_step))
-            printf("Diff case passed for shared\n");
-        else
-            printf(" ERROR Diff case failed for shared\n");
+    chol_InPlace(nstates,s_Q_R);
+    if(thread_id==THREAD && block_id ==BLOCK) {
+        
     }
+
 }

@@ -18,7 +18,6 @@
 //     cudaDeviceSynchronize();
 // }
 
-
 // Define a unit test function
 void test_chol_InPlace()
 {
@@ -34,17 +33,27 @@ void test_chol_InPlace()
     // copy matrices from host to GPU
     cudaMemcpy(d_A, h_A, n * n * sizeof(float), cudaMemcpyHostToDevice);
     // Define block and grid dimensions
-    std::uint32_t blockSize = 1;
-    std::uint32_t gridSize = 1;
+    std::uint32_t blockSize = 256;
+    std::uint32_t gridSize = 8;
     uint32_t shared_mem = 5 * 2160 * sizeof(float);
 
     // Invoke the kernel
     const void *kernelFunc = reinterpret_cast<const void *>(test_chol<float>);
     void *args[] = {// prepare the kernel arguments
                     &n,
-                    &h_A};
+                    &d_A};
     cudaDeviceSynchronize();
     cudaLaunchCooperativeKernel(kernelFunc, gridSize, blockSize, args, shared_mem);
+    cudaError_t cudaStatus = cudaGetLastError();
+    if (cudaStatus != cudaSuccess)
+    {
+        fprintf(stderr, "Kernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        return;
+    }
+    else
+    {
+        printf("launched successfully\n");
+    }
     cudaDeviceSynchronize();
     // Copy the result back to host memory
     cudaMemcpy(h_A, d_A, n * n * sizeof(float), cudaMemcpyDeviceToHost);
@@ -52,6 +61,7 @@ void test_chol_InPlace()
     // Add assertions
     // For simplicity, print the result for now
     std::cout << "Resultant matrix after Cholesky decomposition:" << std::endl;
+    
     for (int i = 0; i < n; ++i)
     {
         for (int j = 0; j < n; ++j)
@@ -64,7 +74,7 @@ void test_chol_InPlace()
     // Free device memory
     cudaFree(d_A);
 
-    //ADD tests for 1 thread,1 block
+    // ADD tests for 1 thread,1 block
 
-    //ADD tests for many threads many blocks
+    // ADD tests for many threads many blocks
 }

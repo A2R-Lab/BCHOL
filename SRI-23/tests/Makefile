@@ -1,20 +1,13 @@
-# Target executable
-TARGET = chol_test
+CXX := nvcc
+CXXFLAGS := -std=c++11 $(CUDA_FLAGS)
 
-# Source files
-SRCS = main.cu test_chol_InPlace.cuh test_chol.cuh
+all: chol_test
 
-# Object files
-OBJS = $(SRCS:.cu=.o)
+main.o: main.cu test_chol_InPlace.cuh test_chol.cuh
+	$(CXX) $(CXXFLAGS) -c main.cu -o main.o
 
-# Rules
-all: $(TARGET)
-
-$(TARGET): $(OBJS)
-	$(NVCC) $(NVCCFLAGS) $(OBJS) -o $(TARGET)
-
-%.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+chol_test: main.o
+	$(CXX) $(CXXFLAGS) main.o -o test
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f main.o test

@@ -9,14 +9,13 @@ A file to run the test kernel and run all the unit tests
 #include <sstream>
 #include <vector>
 #include <limits>
-#include "csv.cuh"
-#include "test_kernel.cuh"
-#include "check_equality_test.cuh"
+#include "test_chol.cuh"
 #include "test_chol_InPlace.cuh"
 
 using namespace std;
 int main()
 {
+    printf("HI\n");
     test_chol_InPlace();
     return 0;
 }
