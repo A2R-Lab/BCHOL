@@ -1,53 +1,9 @@
 Run Test
 Allocated memory
 launched successfully
-
-Level 0, numleaves 4
-Checking factor_inner,  ind 0,ind3 1
-Checking factor_inner,  ind 2,ind3 3
-Checking factor_inner,  ind 4,ind3 5
-Checking factor_inner,  ind 6,ind3 7
-Checking chol_solve,  lambda 1,d 1
-Checking chol_solve,  lambda 3,d 3
-Checking chol_solve,  lambda 5,d 5
-Checking chol_solve,  lambda 7,d 7
-Checking shur_sol,  f_soln 1,g_soln 0, F_mat 0
-Checking shur_sol,  f_soln 1,g_soln 1, F_mat 1
-Checking shur_sol,  f_soln 3,g_soln 2, F_mat 2
-Checking shur_sol,  f_soln 3,g_soln 3, F_mat 3
-Checking shur_sol,  f_soln 5,g_soln 4, F_mat 4
-Checking shur_sol,  f_soln 5,g_soln 5, F_mat 5
-Checking shur_sol,  f_soln 7,g_soln 6, F_mat 6
-Checking shur_sol,  f_soln 7,g_soln 7, F_mat 7
-
-Level 1, numleaves 2
-Checking factor_inner,  ind 1,ind3 2
-Checking factor_inner,  ind 5,ind3 6
-Checking chol_solve,  lambda 10,d 2
-Checking chol_solve,  lambda 14,d 6
-Checking shur_sol,  f_soln 2,g_soln 0, F_mat 8
-Checking shur_sol,  f_soln 2,g_soln 1, F_mat 9
-Checking shur_sol,  f_soln 2,g_soln 2, F_mat 10
-Checking shur_sol,  f_soln 2,g_soln 3, F_mat 11
-Checking shur_sol,  f_soln 6,g_soln 4, F_mat 12
-Checking shur_sol,  f_soln 6,g_soln 5, F_mat 13
-Checking shur_sol,  f_soln 6,g_soln 6, F_mat 14
-Checking shur_sol,  f_soln 6,g_soln 7, F_mat 15
-
-Level 2, numleaves 1
-Checking factor_inner,  ind 3,ind3 4
-Checking chol_solve,  lambda 20,d 4
-Checking shur_sol,  f_soln 4,g_soln 0, F_mat 16
-Checking shur_sol,  f_soln 4,g_soln 1, F_mat 17
-Checking shur_sol,  f_soln 4,g_soln 2, F_mat 18
-Checking shur_sol,  f_soln 4,g_soln 3, F_mat 19
-Checking shur_sol,  f_soln 4,g_soln 4, F_mat 20
-Checking shur_sol,  f_soln 4,g_soln 5, F_mat 21
-Checking shur_sol,  f_soln 4,g_soln 6, F_mat 22
-Checking shur_sol,  f_soln 4,g_soln 7, F_mat 23
 done with cuda!
 
-Solve Time:  2.7 ms 
+Solve Time:  0.9 ms 
 CHECK FINAL RESULTS on host
 118.504715  
 172.846069  
