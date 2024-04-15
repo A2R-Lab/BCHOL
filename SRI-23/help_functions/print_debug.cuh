@@ -29,7 +29,8 @@ __host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
  */
 __host__ __device__ bool checkEquality(float *array_a, float *array_b, uint32_t size)
 {
-    for (int i=0; i < size;i++) {
+    for (int i = 0; i < size; i++)
+    {
         float x = array_a[i];
         float y = array_b[i];
 
@@ -51,7 +52,8 @@ __host__ __device__ bool checkEqual_prl(T *array_a, T *array_b, uint32_t size)
 {
     uint32_t ind = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (ind < size) {
+    if (ind < size)
+    {
         T x = array_a[ind];
         T y = array_b[ind];
 
@@ -131,6 +133,58 @@ __host__ __device__ void print_KKT(T *F_lambda, T *F_state, T *F_input, T *d,
     }
 }
 
+template <typename T>
+__host__ __device__ void print_soln(T *d, T *q_r, uint32_t nhorizon, uint32_t nstates, uint32_t ninputs)
+{
+    for (unsigned i = 0; i < nhorizon; i++)
+    {
+        printf("\nd%d: \n", i);
+        printMatrix(d + i * nstates, 1, nstates);
+
+        printf("\nq%d: \n", i);
+        printMatrix(q_r + (i * (ninputs + nstates)), 1, nstates);
+
+        printf("\nr%d: \n", i);
+        printMatrix(q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+    }
+}
+
+template <typename T>
+__host__ __device__ void print_soln_step(uint32_t i, T *d, T *q_r, uint32_t nhorizon, uint32_t nstates, uint32_t ninputs)
+{
+
+    printf("\nd%d: \n", i);
+    printMatrix(d + i * nstates, 1, nstates);
+
+    printf("\nq%d: \n", i);
+    printMatrix(q_r + (i * (ninputs + nstates)), 1, nstates);
+
+    printf("\nr%d: \n", i);
+    printMatrix(q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+}
+
+template <typename T>
+__host__ __device__ void print_soln_ram_shared(T *s_d, T *s_q_r, T *d_d, T *d_q_r,
+                                               uint32_t nhorizon, uint32_t nstates, uint32_t ninputs)
+{
+    for (unsigned i = 0; i < nhorizon; i++)
+    {
+        printf("\ns_d%d: \n", i);
+        printMatrix(s_d + i * nstates, 1, nstates);
+        printf("\nd_d%d: \n", i);
+        printMatrix(d_d + i * nstates, 1, nstates);
+
+        printf("\ns_q%d: \n", i);
+        printMatrix(s_q_r + (i * (ninputs + nstates)), 1, nstates);
+        printf("\nd_q%d: \n", i);
+        printMatrix(d_q_r + (i * (ninputs + nstates)), 1, nstates);
+
+        printf("\ns_r%d: \n", i);
+        printMatrix(s_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+        printf("\nd_r%d: \n", i);
+        printMatrix(d_q_r + (i * (ninputs + nstates) + nstates), 1, ninputs);
+    }
+}
 template <typename T>
 __host__ __device__ void print_ram_shared(T *s_F_lambda, T *s_F_state, T *s_F_input, T *s_d, T *s_q_r,
                                           T *d_F_lambda, T *d_F_state, T *d_F_input, T *d_d, T *d_q_r,
