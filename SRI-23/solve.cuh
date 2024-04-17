@@ -218,23 +218,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         uint32_t upper_level = level + (ind % cur_depth);
         uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
 
-        // debug
-        uint32_t index = lin_ind + nhorizon * upper_level;
-        uint32_t index2 = (lin_ind + 1) + nhorizon * upper_level;
-        if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-        {
-          printf("Checking factor_inner, level %d, ind %d\n", level, index2);
-          printMatrix(s_F_lambda + (index2 * states_sq), nstates, nstates);
-        }
-        block.sync();
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
-        block.sync();
-        if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-        {
-          printf("Checking  AFTER factor_inner, level %d, ind %d\n", level, index2);
-          printMatrix(s_F_lambda + (index2 * states_sq), nstates, nstates);
-        }
-        block.sync();
       }
     }
     block.sync();
@@ -245,19 +229,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       uint32_t index = pow(2.0, level) * (2 * leaf + 1) - 1;
       uint32_t lin_ind = index + nhorizon * level;
       float *S = s_F_lambda + (states_sq * (lin_ind + 1));
-      if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-      {
-        printf("Before calling Chol %d\n", lin_ind + 1);
-        printMatrix(S, nstates, nstates);
-      }
-      block.sync();
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
-      if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-      {
-        printf("After calling Chol %d \n", level);
-        printMatrix(S, nstates, nstates);
-      }
-      block.sync();
     }
 
     // Solve with Cholesky factor for f
@@ -362,35 +334,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-    // sanity check that we are done with the loop
-    if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
-    {
-      printf("done with the loop!\n");
-    }
     grid.sync(); // nt sure if needed
-  }
-
-  if (!DEBUG)
-  {
-    if (block_id == BLOCK && thread_id == THREAD)
-    {
-      // printf("CHECKING DATA AFTER LOOP level\n");
-      bool check1 = checkEquality(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-      bool check_all = checkEquality(s_F_state, d_F_state, states_sq * nhorizon * depth);
-      bool check1_prl = checkEqual_prl(s_F_state + states_sq, d_F_state + states_sq, states_sq);
-      bool check_all_prl = checkEqual_prl(s_F_state, d_F_state, states_sq * nhorizon * depth);
-
-      // printf("fstate: check1: %d, checkall: %d,check1_prl: %d, chekallprl:%d\n", check1 ? 1 : 0, check_all ? 1 : 0,
-      //        check1_prl ? 1 : 0, check_all_prl ? 1 : 0);
-      // if (!check1 || !check_all)
-      //   printf("ERROR!! FSTATE!");
-      printf("CHECKING DATA AFTER loop");
-      // print_KKT(d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon,
-      //           depth, nstates, ninputs);
-      print_ram_shared(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r,
-                       d_F_lambda, d_F_state, d_F_input, d_d, d_q_r, nhorizon, depth, nstates, ninputs);
-    }
-    block.sync();
   }
 
   // SOLN VECTOR LOOP!
@@ -406,16 +350,9 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
 
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
-      if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
-        printf("num of copies %d\n", num_copies);
-      block.sync();
       for (uint32_t k = b_id * num_copies; k < b_id * num_copies + num_copies; k++)
       {
         uint32_t ind = k + level * nhorizon;
-        // copy the soln
-        if (!DEBUG && thread_id == THREAD && block_id == BLOCK)
-          printf("b_id %d k %d, ind %d\n", b_id, k, ind);
-        block.sync();
         glass::copy((nstates + ninputs), d_q_r + k * (nstates + ninputs), s_q_r + k * (nstates + ninputs));
         glass::copy(nstates, d_d + k * nstates, s_d + k * nstates);
         block.sync();
@@ -432,37 +369,15 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         block.sync();
       }
     }
-    // First loop is ok here
-    if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
-    {
-      printf("\nLevel %d, numleaves %d, after copyinf from RAM\n", level, numleaves);
-      print_soln_ram_shared(s_d, s_q_r, d_d, d_q_r, nhorizon, nstates, ninputs);
-    }
-    block.sync();
 
     // calculate inner products with rhs, with factors computed above
     // in parallel
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim)
     {
       uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-      if (!SAFE_MOOD && thread_id == THREAD && block_id == BLOCK)
-      {
-        printf("Before factor_INner");
-        print_soln_step(lin_ind + 1, s_d, s_q_r, nhorizon, nstates, ninputs);
-      }
-      block.sync();
       // Calculate z = d - F'b1 - F2'b2
       factorInnerProduct_sol(s_A_B, s_q_r, s_d, lin_ind, nstates, ninputs, nhorizon);
-      // debug
-      uint32_t index2 = (lin_ind + 1);
-      if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-      {
-        printf("Checking factor_inner,  ind %d,ind3 %d\n", lin_ind, index2);
-        print_soln_step(index2, s_d, s_q_r, nhorizon, nstates, ninputs);
-      }
-      block.sync();
     }
-    block.sync();
 
     // Solve for separator variables with cached Cholesky decomposition
     for (uint32_t leaf = block_id; leaf < numleaves; leaf += grid_dim)
@@ -470,67 +385,23 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
       float *Sbar = s_F_lambda + (level * nhorizon + lin_ind + 1) * states_sq;
       float *zy = s_d + (lin_ind + 1) * nstates;
-      // DEBUG
-      // check what's involved here
-      if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-      {
-        uint32_t lambda = level * nhorizon + lin_ind + 1;
-        uint32_t d = (lin_ind + 1);
-        printf("Checking chol_solve,  lambda %d,d %d\n", lambda, d);
-        printMatrix(Sbar, nstates, nstates);
-        print_soln_step(d, s_d, s_q_r, nhorizon, nstates, ninputs);
-      }
-      block.sync();
       // Sbar \ z = zbar
       cholSolve_InPlace(Sbar, zy, false, nstates, 1);
-      if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-      {
-        uint32_t lambda = level * nhorizon + lin_ind + 1;
-        uint32_t d = (lin_ind + 1);
-        printf("Checking after chol_solve,  lambda %d,d %d\n", lambda, d);
-        printMatrix(Sbar, nstates, nstates);
-        print_soln_step(d, s_d, s_q_r, nhorizon, nstates, ninputs);
-      }
-      block.sync();
     }
     block.sync();
 
     // Propagate information to solution vector
     //    y = y - F zbar
-   for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
+    for (uint32_t b_id = block_id; b_id < numleaves; b_id += grid_dim)
     {
       for (uint32_t i = 0; i < num_copies; i++)
       {
-        uint32_t k = b_id*num_copies+i;
+        uint32_t k = b_id * num_copies + i;
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels); // nhorizon, s_levels
-
-        // DEBUG - check shur
-        // check what's involved here
-        if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-        {
-          uint32_t f_d = index + 1;
-          uint32_t g_d = k;
-          uint32_t F_mat = k + nhorizon * level;
-          printf("Checking shur_sol b_id %d,k %d,  f_soln %d,g_soln %d, F_mat %d\n", b_id,k, f_d, g_d, F_mat);
-          // print_step_matrix(F_mat,s_F_lambda,s_F_state,s_F_input,nstates,ninputs);
-          // print_soln_step(f_d,s_d,s_q_r,nhorizon,nstates,ninputs);
-          // print_soln_step(g_d,s_d,s_q_r,nhorizon,nstates,ninputs);
-        }
-        block.sync();
         updateShur_sol<float>(s_F_state, s_F_input, s_F_lambda, s_q_r, s_d, index, k, level,
                               calc_lambda, nstates, ninputs, nhorizon);
 
-        if (!SAFE_MOOD && block_id == BLOCK && thread_id == THREAD)
-        {
-          uint32_t f_d = index + 1;
-          uint32_t g_d = k;
-          uint32_t F_mat = k + nhorizon * level;
-          printf("Checking shur_sol,  f_soln %d,g_soln %d, F_mat %d\n", f_d, g_d, F_mat);
-          // print_step_matrix(F_mat,s_F_lambda,s_F_state,s_F_input,nstates,ninputs);
-          // print_soln_step(f_d,s_d,s_q_r,nhorizon,nstates,ninputs);
-          // print_soln_step(g_d,s_d,s_q_r,nhorizon,nstates,ninputs);
-        }
         block.sync();
       }
     }
@@ -562,20 +433,5 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
     }
     grid.sync();
-    if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
-    {
-      printf("\nLevel %d, numleaves %d, after copyinf to RAM\n", level, numleaves);
-      // print_soln(d_d,d_q_r,nhorizon,nstates,ninputs);
-      // print_soln(s_d,s_q_r,nhorizon,nstates,ninputs);
-      print_soln_ram_shared(s_d, s_q_r, d_d, d_q_r, nhorizon, nstates, ninputs);
-    }
-    block.sync();
   }
-
-  if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
-  {
-    printf("\nAfter the loop\n");
-    print_soln_ram_shared(s_d, s_q_r, d_d, d_q_r, nhorizon, nstates, ninputs);
-  }
-  block.sync();
 }
