@@ -50,13 +50,15 @@ fact_innerProduct (per block + must add per threads)
 Gives us bbar and Bbar
 Can be improved by doing independent loops for ind = 0 ,cur_depth!
 
-dot_product of Ai *F_state (i at fact_level), result saved in S (?)
-dot_product of B_i *F_input(i at fact_level), result saved in S (?)
-scaled_sum ()
+dot_product of Ai *F_state (i at fact_level), result saved in S.
+dot_product of B_i *F_input(i at fact_level), result saved in S.
+scaled_sum (), result saved in S. 
+COPY: NEED TO COPY ONLY S as it's the only matrix that's changed.
+S is at ind+1 ;upper level (from cur till depth)
 
 Cholesky factorization (parallelizatoin leaf per block)
 Gives us Cholesky factorization of s_F_lambda, in other words, fact for Bbar
-
+Only S is changed ((same as in factor_Inner))
 
 Solve with cholesky
 

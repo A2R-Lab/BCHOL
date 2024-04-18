@@ -260,9 +260,7 @@ __device__ void factorInnerProduct_sol(T *s_A_B,
  * @param upper_level Level index for the right-hand-side. @p upper_level > @p level.
  */
 template <typename T>
-__device__ void SolveCholeskyFactor(T *fact_state,
-                                    T *fact_input,
-                                    T *fact_lambda,
+__device__ void SolveCholeskyFactor(T *fact_lambda,
                                     int index,
                                     int level,
                                     int upper_level,

@@ -133,28 +133,16 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
     {
 
       uint32_t ind = s_tree_result[b_id];
-      // copy the timestep at level 0 for factor_inner
-
-      glass::copy(states_sq, d_F_lambda + (states_sq * ind),
-                  s_F_lambda + (states_sq * ind));
-      glass::copy(states_sq, d_F_state + (states_sq * ind),
-                  s_F_state + (states_sq * ind));
-      glass::copy(inp_states, d_F_input + (inp_states * ind),
-                  s_F_input + (inp_states * ind));
-      block.sync();
       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
       {
         // copy ind and ind+ 1 for current level and upper levels
-        if (!(level == 0 && cur_level == 0)) // check this later
-        {
-          glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
-                      s_F_lambda + (states_sq * (cur_level * nhorizon + ind)));
-          glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
-                      s_F_state + (states_sq * (cur_level * nhorizon + ind)));
-          glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
-                      s_F_input + (inp_states * (cur_level * nhorizon + ind)));
-          block.sync();
-        }
+        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
+                    s_F_lambda + (states_sq * (cur_level * nhorizon + ind)));
+        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
+                    s_F_state + (states_sq * (cur_level * nhorizon + ind)));
+        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
+                    s_F_input + (inp_states * (cur_level * nhorizon + ind)));
+        block.sync();
         // copy next_ind
         uint32_t next_ind = ind + 1;
         glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
@@ -192,6 +180,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         }
       }
     }
+
     // Calc Inner Products Bbar and bbar (to solve for y)
     for (uint32_t b_ind = block_id; b_ind < L; b_ind += grid_dim)
     {
@@ -202,8 +191,8 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         uint32_t leaf = ind / cur_depth;
         uint32_t upper_level = level + (ind % cur_depth);
         uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+        block.sync();
       }
     }
 
@@ -219,14 +208,14 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
     // Solve with Cholesky factor for y
     for (uint32_t b_id = block_id; b_id < L; b_id += grid_dim)
     {
-      //can add parallelization within threads here
+      // can add parallelization within threads here
       for (uint32_t t_id = 0; t_id < upper_levels; t_id += 1)
       {
         uint32_t i = b_id * upper_levels + t_id;
         uint32_t leaf = i / upper_levels;
         uint32_t upper_level = level + 1 + (i % upper_levels);
         uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-        SolveCholeskyFactor<float>(s_F_state, s_F_input, s_F_lambda, lin_ind, level, upper_level,
+        SolveCholeskyFactor<float>(s_F_lambda, lin_ind, level, upper_level,
                                    nstates, ninputs, nhorizon);
       }
     }
@@ -246,21 +235,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         int g = k + nhorizon * upper_level;
         updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
                           calc_lambda, nstates, ninputs, nhorizon);
-        block.sync();
-        // copy whatever was touched in Update Shur
-        glass::copy(states_sq, s_F_lambda + (states_sq * f),
-                    d_F_lambda + (states_sq * f));
-        glass::copy(states_sq, s_F_state + (states_sq * f),
-                    d_F_state + (states_sq * f));
-        glass::copy(inp_states, s_F_input + (inp_states * f),
-                    d_F_input + (inp_states * f));
-        // // copy F
-        glass::copy(states_sq, s_F_lambda + (states_sq * F),
-                    d_F_lambda + (states_sq * F));
-        glass::copy(states_sq, s_F_state + (states_sq * F),
-                    d_F_state + (states_sq * F));
-        glass::copy(inp_states, s_F_input + (inp_states * F),
-                    d_F_input + (inp_states * F));
         // copy g
         block.sync();
         glass::copy(states_sq, s_F_lambda + (states_sq * g),
@@ -272,33 +246,19 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
     }
 
-    grid.sync(); // not sure if needed
-
-    // after finishing with the level need to rewrite from shared to RAM 
+    // after finishing with the level need to rewrite from shared to RAM
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
       uint32_t ind = s_tree_result[b_id];
-
-      // copy the timestep at level 0 for factor_inner
-      glass::copy(states_sq, s_F_lambda + (states_sq * ind),
-                  d_F_lambda + (states_sq * ind));
-      glass::copy(states_sq, s_F_state + (states_sq * ind),
-                  d_F_state + (states_sq * ind));
-      glass::copy(inp_states, s_F_input + (inp_states * ind),
-                  d_F_input + (inp_states * ind));
-      block.sync();
-
       for (uint32_t copy_level = level; copy_level < depth; copy_level++)
       {
-        if (level != 0)
-        {
-          glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
-                      d_F_lambda + (states_sq * (copy_level * nhorizon + ind)));
-          glass::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
-                      d_F_state + (states_sq * (copy_level * nhorizon + ind)));
-          glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
-                      d_F_input + (inp_states * (copy_level * nhorizon + ind)));
-        }
+        glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+                    d_F_lambda + (states_sq * (copy_level * nhorizon + ind)));
+        glass::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
+                    d_F_state + (states_sq * (copy_level * nhorizon + ind)));
+        glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
+                    d_F_input + (inp_states * (copy_level * nhorizon + ind)));
+
         // copying ind+1
         uint32_t next_ind = ind + 1;
         glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
