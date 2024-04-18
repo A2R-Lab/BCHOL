@@ -1,0 +1,63 @@
+/** @brief The rsLQR solver, the main function of the solver
+
+Right now the whole rsLQR algorithm is proccessed in this function.
+ */
+
+
+
+Lines 33-39 : initialization of block/thread for cgrps
+Lines 41-47: KKT constants
+Lines 49-59: initialization of shared memory
+
+-s_Q_R : UNCHANGED data of Q, and R arrays of cost function
+-s_q_r: initialized with q,r vectors but is also a holder for soln 
+state and control vectors. The data is changed throughout the algorithm, becomes 
+x, and z for soln vector.
+-s_A_B: UNCHANGED data of A,B, arrays of dynamic function
+-s_d: initialized with d vector (f in the paper), changing thorught the algorithm
+and holds in place lambda soln vector, y for soln vector.
+
+-s_F_lambda: stores factorization and calculations of Bbar,
+later holds "y" Schur compliment 
+-s_F_state: stores factorization of initial Dbar Ebar (from sovleleaf), changing
+throughtout algorithm , later becomes "x Schur compliment" 
+-s_F_input: stores factorization of initial R\b, (Dbar/Ebar,a,c), changing 
+throughtout algorithm , later becomes "z Schur compliment" 
+
+Lines 61-68
+Move ram to shared
+
+Lines 69-110 -Solveleaf
+Gives us initial Ebar,Dbar,abar,cbar
+
+for( block per leaf)
+Solveleaf : solve Q\A for s_F_state, or Q\I. Solves R\B for s_F_input.
+Also solves Q\q and R\r for q_r, putting the result in place
+
+copying the results from shared to RAM done inside the loop while we copy only neccesarry
+timesteps.
+
+Right now copying the whole ram soln to every block, don't need to do it , only timestep for each block.
+
+We enter the first big loop, the idea to use number of blocks = num of leaves
+Here we are solving from 0-2, not solving for soln vector, it will be done in 
+a separate block later.
+
+Lines 119-313
+for (level = 0 ;level<depth; level++)
+
+fact_innerProduct (per block + must add per threads)
+Gives us bbar and Bbar
+Can be improved by doing independent loops for ind = 0 ,cur_depth!
+
+dot_product of Ai *F_state (i at fact_level), result saved in S (?)
+dot_product of B_i *F_input(i at fact_level), result saved in S (?)
+scaled_sum ()
+
+Cholesky factorization (parallelizatoin leaf per block)
+Gives us Cholesky factorization of s_F_lambda, in other words, fact for Bbar
+
+
+Solve with cholesky
+
+
