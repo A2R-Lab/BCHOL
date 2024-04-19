@@ -29,3 +29,5 @@ test: $(OBJS)
 solve_lqr.o: solve_lqr.cu solve.cuh
 	$(NVCC) $(NVCC_FLAGS) -c $< -o $@ $(NVCC_LIBS)
 
+clean:
+	rm -f $(OBJS) test

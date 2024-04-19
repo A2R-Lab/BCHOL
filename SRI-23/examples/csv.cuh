@@ -4,6 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <limits>
+#include <string> 
 using namespace std;
 
 /* Creates csv from arrays
@@ -16,7 +17,7 @@ void create_csv(uint32_t nhorizon, uint32_t nstates, uint32_t ninputs,
     // file pointer
     fstream fout;
 
-    fout.open("csv_example.csv", ios::out);
+    fout.open("csv_example2.csv", ios::out);
     // Check if the file is successfully opened
     if (!fout.is_open())
     {
@@ -80,6 +81,7 @@ void create_csv(uint32_t nhorizon, uint32_t nstates, uint32_t ninputs,
     fout.close();
     cout << "CSV file has been written successfully." << endl;
 }
+
 
 
 //a function to read_csv
