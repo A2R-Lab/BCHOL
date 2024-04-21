@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 #include <cmath>
 #include <cooperative_groups.h>
-#include "../../../GLASS/glass.cuh"
+#include "../../GLASS/glass.cuh"
 // should we put into one header file?
 
 #include "./copy_mult.cuh"

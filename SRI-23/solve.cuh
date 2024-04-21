@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 #include <cmath>
 #include <cooperative_groups.h>
-#include "../../GLASS/glass.cuh"
+#include "../GLASS/glass.cuh"
 #include "./help_functions/print_debug.cuh"
 #include "./help_functions/nested_dissect.cuh"
 #include "./help_functions/tree_functs.cuh"
