@@ -6,6 +6,7 @@
 #include <cooperative_groups.h>
 // #include "blockassert.cuh" //need to write!
 
+
 template <typename T>
 __host__ __device__ void printMatrixH(T *matrix, uint32_t rows, uint32_t cols)
 {
@@ -284,8 +285,8 @@ __host__ int main()
 
   // Launch CUDA kernel with block and grid dimensions
   // uint32_t info[] = {nhorizon,ninputs,nstates};
-  std::uint32_t blockSize = 2;
-  std::uint32_t gridSize = 2; 
+  std::uint32_t blockSize = 64;
+  std::uint32_t gridSize = 8; 
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
   const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel_t<float>);

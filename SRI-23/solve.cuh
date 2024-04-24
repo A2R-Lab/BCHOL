@@ -14,7 +14,6 @@ __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
 
 namespace cgrps = cooperative_groups;
-
 /** @brief The rsLQR solver, the main function of the solver
  */
 template <typename T>
@@ -230,8 +229,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         uint32_t upper_level = level + 1 + (i % upper_levels);
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
-        int f = (index + 1) + nhorizon * upper_level;
-        int F = k + nhorizon * level;
         int g = k + nhorizon * upper_level;
         updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
                           calc_lambda, nstates, ninputs, nhorizon);
@@ -270,7 +267,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-    grid.sync(); // nt sure if needed
+    // grid.sync(); // nt sure if needed
   }
 
   // SOLN VECTOR LOOP
@@ -352,6 +349,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
                     d_F_input + (inp_states * ind));
       }
     }
-    grid.sync();
+    // grid.sync();
   }
 }
