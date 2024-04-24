@@ -34,3 +34,4 @@ void dot_product(std::uint32_t m,
         C[col*m + row] = alpha * res + beta * C[col*m + row];
     }
 }
+
