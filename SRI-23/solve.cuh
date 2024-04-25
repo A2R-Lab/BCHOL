@@ -17,7 +17,7 @@ namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
 template <typename T>
-__global__ void solve_Kernel_t(uint32_t nhorizon,
+__global__ void solve_Kernel(uint32_t nhorizon,
                                uint32_t ninputs,
                                uint32_t nstates,
                                T *d_Q_R,

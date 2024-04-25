@@ -3,7 +3,7 @@ Allocated memory
 launched successfully
 done with cuda!
 
-Solve Time:  1.1 ms 
+Solve Time:  1.2 ms 
 CHECK FINAL RESULTS on host
 54.012806  
 68.235115  
