@@ -349,6 +349,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
                     d_F_input + (inp_states * ind));
       }
     }
-    // grid.sync();
+    grid.sync();
   }
 }
