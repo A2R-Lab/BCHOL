@@ -135,6 +135,12 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
       {
         // copy ind and ind+ 1 for current level and upper levels
+        // copy3<float>(states_sq , 1, d_F_lambda+ (states_sq * (cur_level * nhorizon + ind)),
+        // s_F_lambda+ (states_sq * (cur_level * nhorizon + ind)),
+        // states_sq, 1,d_F_state+ (states_sq * (cur_level * nhorizon + ind)),
+        // s_F_state+ (states_sq * (cur_level * nhorizon + ind)),
+        // inp_states, 1, d_F_input+ (inp_states * (cur_level * nhorizon + ind)),
+        // s_F_input+ (inp_states * (cur_level * nhorizon + ind)));
         glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
                     s_F_lambda + (states_sq * (cur_level * nhorizon + ind)));
         glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
@@ -168,6 +174,12 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
           {
 
             ind = k + nhorizon * cur_level;
+            // copy3<float>(states_sq , 1, d_F_lambda + (states_sq * ind),
+            // s_F_lambda + (states_sq * ind),states_sq, 1,d_F_state + (states_sq * ind),
+            // s_F_state + (states_sq * ind), inp_states, 1, d_F_input + (inp_states * ind),
+            // s_F_input + (inp_states * ind));
+            // block.sync();
+
             glass::copy(states_sq, d_F_lambda + (states_sq * ind),
                         s_F_lambda + (states_sq * ind));
             glass::copy(states_sq, d_F_state + (states_sq * ind),
@@ -189,8 +201,24 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         uint32_t ind = b_ind * cur_depth + t_ind;
         uint32_t leaf = ind / cur_depth;
         uint32_t upper_level = level + (ind % cur_depth);
-        uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
-        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+        uint32_t index = pow(2.0, level) * (2 * leaf + 1) - 1;
+        // New Version, pass already ready to go indices
+        float *C1_state = s_A_B + (index * dyn_step);
+        float *C1_input = s_A_B + (index * dyn_step + states_sq);
+
+        uint32_t linear_index = index + nhorizon * upper_level;
+        float *F1_state = s_F_state + linear_index * states_sq;
+        float *F1_input = s_F_input + linear_index * inp_states;
+        
+        linear_index = (index + 1) + nhorizon * upper_level;
+        float *F2_state = s_F_state + linear_index * (nstates * nstates);
+        float *S = s_F_lambda + linear_index * (nstates * nstates);                                                  // F2_lambda
+        dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
+        dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+        __syncthreads();
+        scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
+
+        // factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
         block.sync();
       }
     }
