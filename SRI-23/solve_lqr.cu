@@ -136,7 +136,7 @@ __host__ int main()
         }
         std::cout << std::endl;
     }
-    // Print the updated values of nhorizon, nstates, and ninputs
+  // Print the updated values of nhorizon, nstates, and ninputs
   std::cout << "Updated nhorizon: " << nhorizon << std::endl;
   std::cout << "Updated nstates: " << nstates << std::endl;
   std::cout << "Updated ninputs: " << ninputs << std::endl;
