@@ -13,6 +13,8 @@ __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
 
+
+
 namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
@@ -203,22 +205,21 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
         uint32_t upper_level = level + (ind % cur_depth);
         uint32_t index = pow(2.0, level) * (2 * leaf + 1) - 1;
         // New Version, pass already ready to go indices
-        float *C1_state = s_A_B + (index * dyn_step);
-        float *C1_input = s_A_B + (index * dyn_step + states_sq);
+        // float *C1_state = s_A_B + (index * dyn_step);
+        // float *C1_input = s_A_B + (index * dyn_step + states_sq);
 
-        uint32_t linear_index = index + nhorizon * upper_level;
-        float *F1_state = s_F_state + linear_index * states_sq;
-        float *F1_input = s_F_input + linear_index * inp_states;
+        // uint32_t linear_index = index + nhorizon * upper_level;
+        // float *F1_state = s_F_state + linear_index * states_sq;
+        // float *F1_input = s_F_input + linear_index * inp_states;
         
-        linear_index = (index + 1) + nhorizon * upper_level;
-        float *F2_state = s_F_state + linear_index * (nstates * nstates);
-        float *S = s_F_lambda + linear_index * (nstates * nstates);                                                  // F2_lambda
-        dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
-        dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
-        __syncthreads();
-        scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
-
-        // factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
+        // linear_index = (index + 1) + nhorizon * upper_level;
+        // float *F2_state = s_F_state + linear_index * (nstates * nstates);
+        // float *S = s_F_lambda + linear_index * (nstates * nstates);                                                  // F2_lambda
+        // dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
+        // dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
+        // __syncthreads();
+        // scaled_sum<float>(nstates, nstates, -1.0, F2_state, S, cgrps::this_thread_block()); // equivalent to -I'F2_state
+        factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
         block.sync();
       }
     }
@@ -295,7 +296,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-    // grid.sync(); // nt sure if needed
+    grid.sync(); // nt sure if needed
   }
 
   // SOLN VECTOR LOOP

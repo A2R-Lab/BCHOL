@@ -7,6 +7,7 @@
 // #include "blockassert.cuh" //need to write!
 
 
+
 template <typename T>
 __host__ __device__ void printMatrixH(T *matrix, uint32_t rows, uint32_t cols)
 {
