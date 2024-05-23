@@ -8,6 +8,7 @@
 #include <vector>
 // #include "blockassert.cuh" //need to write!
 
+
 __host__ int main()
 {
   printf("Run Test\n");
@@ -83,7 +84,7 @@ __host__ int main()
   std::uint32_t gridSize = 8;
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
-  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel_t<float>);
+  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel<float>);
   void *args[] = {// prepare the kernel arguments
                   &nhorizon,
                   &ninputs,
