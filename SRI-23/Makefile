@@ -26,5 +26,5 @@ test: $(OBJS)
 	$(CC) $(CC_FLAGS) $(OBJS) -o $@ $(CUDA_INC_DIR) $(CUDA_LIB_DIR) $(CUDA_LINK_LIBS)
 
 
-solve_lqr.o: solve_lqr.cu solve.cuh
+solve_lqr.o: solve_lqr8.cu solve.cuh
 	$(NVCC) $(NVCC_FLAGS) -c $< -o $@ $(NVCC_LIBS)
