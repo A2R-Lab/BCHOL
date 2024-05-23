@@ -2,33 +2,63 @@
 #include <iostream>
 #include <cmath>
 #include "solve.cuh"
-#include "./help_functions/csv.cuh"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
-#include <vector>
 // #include "blockassert.cuh" //need to write!
 
 
+
+template <typename T>
+__host__ __device__ void printMatrixH(T *matrix, uint32_t rows, uint32_t cols)
+{
+  for (unsigned i = 0; i < rows; i++)
+  {
+    for (int j = 0; j < cols; j++)
+    {
+      printf("%f  ", matrix[j * rows + i]);
+    }
+    printf("\n");
+  }
+}
 __host__ int main()
 {
   printf("Run Test\n");
-  //Declaration of LQR problem
-  uint32_t nhorizon=8;
-  uint32_t nstates=6;
-  uint32_t ninputs=3;
-  float Q_R[(nstates * nstates + ninputs * ninputs) * nhorizon];
-  float q_r[(nstates + ninputs) * nhorizon];
-  float A_B[(nstates * nstates + nstates * ninputs) * nhorizon];
-  float d[nstates * nhorizon];
-  uint32_t soln_size = (nstates +nstates + ninputs) * nhorizon-ninputs;
-  float soln[soln_size];
-  float my_soln[nstates * nhorizon+(nstates + ninputs) * nhorizon-ninputs];
+  // Info about LQR problem
 
-  //Reading the LQR problem 
-  read_csv("lqr_prob8.csv", nhorizon,nstates,ninputs,Q_R,q_r,A_B,d,soln);
-  uint32_t depth = log2(nhorizon);
+  uint32_t nhorizon = 1;
+    uint32_t depth = log2(nhorizon);
 
-  //Creating Factorization 
+  if(nhorizon==1)
+    depth = 1;
+  uint32_t nstates = 6;
+  uint32_t ninputs = 3;
+
+  // float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; //instead put it as d0
+  float Q_R[(nstates * nstates + ninputs * ninputs) * nhorizon] = {1.0,1.0,1.0,1.0,1.0,1.0, //Q0
+                                                                    0.01,0.01,0.01 //R0
+                                                                    }; // Q_R diagonal matrices - doesn't matter row/column order
+
+  float q_r[(nstates + ninputs) * nhorizon] = { -2.0,-1.2,-0.4,0.4,1.2,2.0, //q0
+                                                -1.0,0.0,1.0  //r0
+                                                };           // vectors q_r
+
+  // c = 1 
+  float A_B[(nstates * nstates + nstates * ninputs) * nhorizon] = {
+    1.0,0.0,0.0,0.0,0.0,0.0,
+    0.0,1.0,0.0,0.0,0.0,0.0,
+    0.0,0.0,1.0,0.0,0.0,0.0,
+    0.1,0.0,0.0,1.0,0.0,0.0,
+    0.0,0.1,0.0,0.0,1.0,0.0,
+    0.0,0.0,0.1,0.0,0.0,1.0, //A0
+    0.005000000000000001,0.0,0.0,0.1,0.0,0.0,
+    0.0,0.005000000000000001,0.0,0.0,0.1,0.0,
+    0.0,0.0,0.005000000000000001,0.0,0.0,0.1 //B0
+  }; //A_B matrices
+
+  float d[nstates * nhorizon] = {
+      1.5,1.5,1.5,1.5,1.5,1.5 //d0
+  };
+
   float F_lambda[nstates * nstates * nhorizon * depth];
   float F_state[nstates * nstates * nhorizon * depth];
   for (uint32_t n = 0; n < nstates * nstates * nhorizon * depth; n++)
@@ -79,12 +109,12 @@ __host__ int main()
   cudaMemcpy(d_F_input, F_input, nstates * ninputs * nhorizon * depth * sizeof(float), cudaMemcpyHostToDevice);
 
   // Launch CUDA kernel with block and grid dimensions
-  //when increasing blocksize to 32 not working
-  std::uint32_t blockSize = 32;
-  std::uint32_t gridSize = 8;
+  // uint32_t info[] = {nhorizon,ninputs,nstates};
+  std::uint32_t blockSize = 64;
+  std::uint32_t gridSize = 8; 
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
-  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel<float>);
+  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel_t<float>);
   void *args[] = {// prepare the kernel arguments
                   &nhorizon,
                   &ninputs,
@@ -123,7 +153,8 @@ __host__ int main()
   }
   printf("done with cuda!\n");
 
-
+  // here can either launch one Kernel and call all functions within it and use blocks (cprgs)
+  // or can potentially launch a kernel per each big function (solve_leaf etc)
 
   // check for error flags
   int error_flag_host;
@@ -147,36 +178,11 @@ __host__ int main()
   cudaEventElapsedTime(&time, start, stop);
   printf("\nSolve Time:  %3.1f ms \n", time);
 
-
-  for(uint32_t timestep = 0; timestep < nhorizon; ++timestep){
-    for (uint32_t i = 0; i < nstates; ++i)
-    {
-      my_soln[timestep*(nstates+nstates+ninputs)+i] = d[timestep*nstates+i];
-    }
-    for (uint32_t i = 0; i < nstates+ninputs; ++i){
-      my_soln[timestep*(nstates+nstates+ninputs)+nstates+i]=q_r[timestep*(nstates+ninputs)+i];
-    }
-  }
-
-  if (checkEquality(my_soln, soln, soln_size))
-  {
-    printf("PASSED!\n");
-  }
-  else {
-    printf("Not Passed");
-    printf("my_soln\n");
-    printMatrix(my_soln,(nstates+nstates+ninputs)*2,1);
-    printf("Soln\n");
-    printMatrix(soln,(nstates+nstates+ninputs)*2,1);
-  }
-
   if (true)
   {
     printf("CHECK FINAL RESULTS on host\n");
-    
     for (unsigned i = 0; i < nhorizon; i++)
     {
-      
       printMatrix(d + i * nstates, nstates, 1);
       printMatrix(q_r + (i * (ninputs + nstates)), nstates, 1);
       printMatrix(q_r + (i * (ninputs + nstates) + nstates), ninputs, 1);
