@@ -123,7 +123,6 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
     uint32_t count = getValuesAtLevel(nhorizon, s_levels, level, s_tree_result);
     uint32_t L = pow(2.0, (depth - level - 1)); // num of leaves
     uint32_t cur_depth = depth - level;
-    // NEW
     uint32_t upper_levels = cur_depth - 1;
     uint32_t num_factors = nhorizon * upper_levels;
     uint32_t num_perblock = num_factors / L;
@@ -270,7 +269,7 @@ __global__ void solve_Kernel_t(uint32_t nhorizon,
       }
       block.sync();
     }
-    grid.sync(); // nt sure if needed
+    grid.sync();
   }
 
   // SOLN VECTOR LOOP

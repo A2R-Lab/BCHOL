@@ -2,237 +2,32 @@
 #include <iostream>
 #include <cmath>
 #include "solve.cuh"
+#include "./help_functions/csv.cuh"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
+#include <vector>
 // #include "blockassert.cuh" //need to write!
 
-template <typename T>
-__host__ __device__ void printMatrixH(T *matrix, uint32_t rows, uint32_t cols)
-{
-  for (unsigned i = 0; i < rows; i++)
-  {
-    for (int j = 0; j < cols; j++)
-    {
-      printf("%f  ", matrix[j * rows + i]);
-    }
-    printf("\n");
-  }
-}
 __host__ int main()
 {
   printf("Run Test\n");
-  // Info about LQR problem
+  //Declaration of LQR problem
+  uint32_t nhorizon=8;
+  uint32_t nstates=6;
+  uint32_t ninputs=3;
+  float Q_R[(nstates * nstates + ninputs * ninputs) * nhorizon];
+  float q_r[(nstates + ninputs) * nhorizon];
+  float A_B[(nstates * nstates + nstates * ninputs) * nhorizon];
+  float d[nstates * nhorizon];
+  uint32_t soln_size = (nstates +nstates + ninputs) * nhorizon-ninputs;
+  float soln[soln_size];
+  float my_soln[nstates * nhorizon+(nstates + ninputs) * nhorizon-ninputs];
 
-  uint32_t nhorizon = 8;
-  uint32_t depth = log2(8);
-  uint32_t nstates = 6;
-  uint32_t ninputs = 3;
+  //Reading the LQR problem 
+  read_csv("lqr_prob8.csv", nhorizon,nstates,ninputs,Q_R,q_r,A_B,d,soln);
+  uint32_t depth = log2(nhorizon);
 
-  // float x0[6] = {1.0, -1.0, 2.0, -2.0, 3.0, -3.0}; //instead put it as d0
-  float Q_R[(nstates * nstates + ninputs * ninputs) * nhorizon] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q0
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R0
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q1
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R1
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q2
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R2
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q3
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R3
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q4
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R4
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q5
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R5
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q6
-                                                                   0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-                                                                   0.01, 0.00, 0.00, // R6
-                                                                   0.00, 0.01, 0.00,
-                                                                   0.00, 0.00, 0.01,
-                                                                   10.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Q7
-                                                                   0.0, 10.0, 0.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 10.0, 0.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 10.0, 0.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 10.0, 0.0,
-                                                                   0.0, 0.0, 0.0, 0.0, 0.0, 10.0,
-                                                                   0.00, 0.00, 0.00, // R7
-                                                                   0.00, 0.00, 0.00,
-                                                                   0.00, 0.00, 0.00}; // Q_R diagonal matrices - doesn't matter row/column order
-
-  float q_r[(nstates + ninputs) * nhorizon] = {
-      -2.0, -1.2, -0.4, 0.4, 1.2, 2.0,                                                             // q0
-      -1.0, 0.0, 1.0,                                                                              // r0
-      -4.0, -2.4, -0.8, 0.8, 2.4, 4.0,                                                             // q1
-      -2.0, 0.0, 2.0,                                                                              // r1
-      -6.0, -3.5999999999999996, -1.2000000000000002, 1.2000000000000002, 3.5999999999999996, 6.0, // q2
-      -3.0, 0.0, 3.0,                                                                              // r2
-      -8.0, -4.8, -1.6, 1.6, 4.8, 8.0,                                                             // q3
-      -4.0, 0.0, 4.0,                                                                              // r3
-      -10.0, -6.0, -2.0, 2.0, 6.0, 10.0,                                                           // q4
-      -5.0, 0.0, 5.0,                                                                              // r4
-      -12.0, -7.199999999999999, -2.4000000000000004, 2.4000000000000004, 7.199999999999999, 12.0, // q5
-      -6.0, 0.0, 6.0,                                                                              // r5
-      -14.0, -8.4, -2.8000000000000003, 2.8000000000000003, 8.4, 14.0,                             // q6
-      -7.0, 0.0, 7.0,                                                                              // r6
-      -160.0, -96.0, -32.0, 32.0, 96.0, 160.0                                                      // q7
-                                            - 0.0,
-      0.0, 0.0 // r7 -doesn't exist
-  };           // vectors q_r
-
-  // c = 1 (?)
-  float A_B[(nstates * nstates + nstates * ninputs) * nhorizon] = {
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A0 or column of A0^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A0
-      0.005000000000000001, 0.0, 0.0, // row of B0 or column of B0^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B0
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A1 or column of A1^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A1
-      0.005000000000000001, 0.0, 0.0, // row of B1 or column of B1^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B1
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A2 or column of A2^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A2
-      0.005000000000000001, 0.0, 0.0, // row of B2 or column of B2^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B2
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A3 or column of A3^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A3
-      0.005000000000000001, 0.0, 0.0, // row of B3 or column of B3^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B3
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A4 or column of A4^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A4
-      0.005000000000000001, 0.0, 0.0, // row of B4 or column of B4^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B4
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A5 or column of A5^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A5
-      0.005000000000000001, 0.0, 0.0, // row of B5 or column of B5^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B5
-      1.0, 0.0, 0.0, 0.1, 0.0, 0.0, // row of A6 or column of A6^T
-      0.0, 1.0, 0.0, 0.0, 0.1, 0.0,
-      0.0, 0.0, 1.0, 0.0, 0.0, 0.1,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0,   // end of A6
-      0.005000000000000001, 0.0, 0.0, // row of B6 or column of B6^T
-      0.0, 0.005000000000000001, 0.0,
-      0.0, 0.0, 0.005000000000000001,
-      0.1, 0.0, 0.0,
-      0.0, 0.1, 0.0,
-      0.0, 0.0, 0.1,                // end of B6
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // row of A7or column of A7^T
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // end of A7
-      0.0, 0.0, 0.0,                // row of B7or column of B7^T
-      0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0 // end of B7
-  };
-
-  float d[nstates * nhorizon] = {
-      1.0, -1.0, 2.0, -2.0, 3.0, -3.0,   // x0
-      1.5, 1.5, 1.5, 1.5, 1.5, 1.5,      // d0
-      3.0, 3.0, 3.0, 3.0, 3.0, 3.0,      // d1
-      4.5, 4.5, 4.5, 4.5, 4.5, 4.5,      // d2
-      6.0, 6.0, 6.0, 6.0, 6.0, 6.0,      // d3
-      7.5, 7.5, 7.5, 7.5, 7.5, 7.5,      // d4
-      9.0, 9.0, 9.0, 9.0, 9.0, 9.0,      // d5
-      10.5, 10.5, 10.5, 10.5, 10.5, 10.5 // d6
-  };
-
+  //Creating Factorization 
   float F_lambda[nstates * nstates * nhorizon * depth];
   float F_state[nstates * nstates * nhorizon * depth];
   for (uint32_t n = 0; n < nstates * nstates * nhorizon * depth; n++)
@@ -283,9 +78,9 @@ __host__ int main()
   cudaMemcpy(d_F_input, F_input, nstates * ninputs * nhorizon * depth * sizeof(float), cudaMemcpyHostToDevice);
 
   // Launch CUDA kernel with block and grid dimensions
-  // uint32_t info[] = {nhorizon,ninputs,nstates};
-  std::uint32_t blockSize = 2;
-  std::uint32_t gridSize = 2; 
+  //when increasing blocksize to 32 not working
+  std::uint32_t blockSize = 32;
+  std::uint32_t gridSize = 8;
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
   const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel_t<float>);
@@ -327,8 +122,7 @@ __host__ int main()
   }
   printf("done with cuda!\n");
 
-  // here can either launch one Kernel and call all functions within it and use blocks (cprgs)
-  // or can potentially launch a kernel per each big function (solve_leaf etc)
+
 
   // check for error flags
   int error_flag_host;
@@ -352,11 +146,36 @@ __host__ int main()
   cudaEventElapsedTime(&time, start, stop);
   printf("\nSolve Time:  %3.1f ms \n", time);
 
+
+  for(uint32_t timestep = 0; timestep < nhorizon; ++timestep){
+    for (uint32_t i = 0; i < nstates; ++i)
+    {
+      my_soln[timestep*(nstates+nstates+ninputs)+i] = d[timestep*nstates+i];
+    }
+    for (uint32_t i = 0; i < nstates+ninputs; ++i){
+      my_soln[timestep*(nstates+nstates+ninputs)+nstates+i]=q_r[timestep*(nstates+ninputs)+i];
+    }
+  }
+
+  if (checkEquality(my_soln, soln, soln_size))
+  {
+    printf("PASSED!\n");
+  }
+  else {
+    printf("Not Passed");
+    printf("my_soln\n");
+    printMatrix(my_soln,(nstates+nstates+ninputs)*2,1);
+    printf("Soln\n");
+    printMatrix(soln,(nstates+nstates+ninputs)*2,1);
+  }
+
   if (true)
   {
     printf("CHECK FINAL RESULTS on host\n");
+    
     for (unsigned i = 0; i < nhorizon; i++)
     {
+      
       printMatrix(d + i * nstates, nstates, 1);
       printMatrix(q_r + (i * (ninputs + nstates)), nstates, 1);
       printMatrix(q_r + (i * (ninputs + nstates) + nstates), ninputs, 1);

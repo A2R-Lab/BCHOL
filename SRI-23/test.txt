@@ -1,9 +1,11 @@
 Run Test
+CSV file has been read successfully.
 Allocated memory
 launched successfully
 done with cuda!
 
-Solve Time:  2.2 ms 
+Solve Time:  1.2 ms 
+PASSED!
 CHECK FINAL RESULTS on host
 118.504715  
 172.846069  
