@@ -1,34 +1,34 @@
 #include <stdio.h>
 #include <iostream>
+#include <numeric>
 #include <cmath>
 #include "solve.cuh"
 #include "./help_functions/csv.cuh"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <vector>
-// #include "blockassert.cuh" //need to write!
 
 
 __host__ int main()
 {
   printf("Run Test\n");
-  //Declaration of LQR problem
-  uint32_t nhorizon=8;
-  uint32_t nstates=6;
-  uint32_t ninputs=3;
+  // Declaration of LQR problem
+  uint32_t nhorizon = 8;
+  uint32_t nstates = 6;
+  uint32_t ninputs = 3;
   float Q_R[(nstates * nstates + ninputs * ninputs) * nhorizon];
   float q_r[(nstates + ninputs) * nhorizon];
   float A_B[(nstates * nstates + nstates * ninputs) * nhorizon];
   float d[nstates * nhorizon];
-  uint32_t soln_size = (nstates +nstates + ninputs) * nhorizon-ninputs;
+  uint32_t soln_size = (nstates + nstates + ninputs) * nhorizon - ninputs;
   float soln[soln_size];
-  float my_soln[nstates * nhorizon+(nstates + ninputs) * nhorizon-ninputs];
+  float my_soln[nstates * nhorizon + (nstates + ninputs) * nhorizon - ninputs];
 
-  //Reading the LQR problem 
-  read_csv("lqr_prob8.csv", nhorizon,nstates,ninputs,Q_R,q_r,A_B,d,soln);
+  // Reading the LQR problem
+  read_csv("lqr_prob8.csv", nhorizon, nstates, ninputs, Q_R, q_r, A_B, d, soln);
   uint32_t depth = log2(nhorizon);
 
-  //Creating Factorization 
+  // Creating Factorization
   float F_lambda[nstates * nstates * nhorizon * depth];
   float F_state[nstates * nstates * nhorizon * depth];
   for (uint32_t n = 0; n < nstates * nstates * nhorizon * depth; n++)
@@ -79,11 +79,12 @@ __host__ int main()
   cudaMemcpy(d_F_input, F_input, nstates * ninputs * nhorizon * depth * sizeof(float), cudaMemcpyHostToDevice);
 
   // Launch CUDA kernel with block and grid dimensions
-  //when increasing blocksize to 32 not working
+  // when increasing blocksize to 32 not working
   std::uint32_t blockSize = 32;
   std::uint32_t gridSize = 8;
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
+
   const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel<float>);
   void *args[] = {// prepare the kernel arguments
                   &nhorizon,
@@ -96,8 +97,9 @@ __host__ int main()
                   &d_F_lambda,
                   &d_F_state,
                   &d_F_input};
-  float time;
+  // Prepare for timing
   cudaEvent_t start, stop;
+  float time;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
   cudaEventRecord(start, 0);
@@ -123,16 +125,6 @@ __host__ int main()
   }
   printf("done with cuda!\n");
 
-
-
-  // check for error flags
-  int error_flag_host;
-  cudaMemcpyFromSymbol(&error_flag_host, error_flag, sizeof(int));
-  if (error_flag_host == 1)
-  {
-    // Handle the error appropriately, e.g., print an error message
-    printf("Error: Invalid index detected in the CUDA kernel tree_array.\n");
-  }
   // Copy back to the host
   cudaMemcpy(q_r, d_q_r, (nstates + ninputs) * nhorizon * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(d, d_d, nstates * nhorizon * sizeof(float), cudaMemcpyDeviceToHost);
@@ -148,47 +140,50 @@ __host__ int main()
   printf("\nSolve Time:  %3.1f ms \n", time);
 
 
-  for(uint32_t timestep = 0; timestep < nhorizon; ++timestep){
-    for (uint32_t i = 0; i < nstates; ++i)
-    {
-      my_soln[timestep*(nstates+nstates+ninputs)+i] = d[timestep*nstates+i];
-    }
-    for (uint32_t i = 0; i < nstates+ninputs; ++i){
-      my_soln[timestep*(nstates+nstates+ninputs)+nstates+i]=q_r[timestep*(nstates+ninputs)+i];
-    }
-  }
-
-  if (checkEquality(my_soln, soln, soln_size))
+for (uint32_t timestep = 0; timestep < nhorizon; ++timestep)
+{
+  for (uint32_t i = 0; i < nstates; ++i)
   {
-    printf("PASSED!\n");
+    my_soln[timestep * (nstates + nstates + ninputs) + i] = d[timestep * nstates + i];
   }
-  else {
-    printf("Not Passed");
-    printf("my_soln\n");
-    printMatrix(my_soln,(nstates+nstates+ninputs)*2,1);
-    printf("Soln\n");
-    printMatrix(soln,(nstates+nstates+ninputs)*2,1);
-  }
-
-  if (true)
+  for (uint32_t i = 0; i < nstates + ninputs; ++i)
   {
-    printf("CHECK FINAL RESULTS on host\n");
-    
-    for (unsigned i = 0; i < nhorizon; i++)
-    {
-      
-      printMatrix(d + i * nstates, nstates, 1);
-      printMatrix(q_r + (i * (ninputs + nstates)), nstates, 1);
-      printMatrix(q_r + (i * (ninputs + nstates) + nstates), ninputs, 1);
-    }
+    my_soln[timestep * (nstates + nstates + ninputs) + nstates + i] = q_r[timestep * (nstates + ninputs) + i];
   }
+}
 
-  // Free allocated GPU memory
-  cudaFree(d_Q_R);
-  cudaFree(d_q_r);
-  cudaFree(d_A_B);
-  cudaFree(d_d);
-  cudaFree(d_F_lambda);
-  cudaFree(d_F_state);
-  cudaFree(d_F_input);
+if (checkEquality(my_soln, soln, soln_size))
+{
+  printf("PASSED!\n");
+}
+else
+{
+  printf("Not Passed");
+  printf("my_soln\n");
+  printMatrix(my_soln, (nstates + nstates + ninputs) * 2, 1);
+  printf("Soln\n");
+  printMatrix(soln, (nstates + nstates + ninputs) * 2, 1);
+}
+
+if (true)
+{
+  printf("CHECK FINAL RESULTS on host\n");
+
+  for (unsigned i = 0; i < nhorizon; i++)
+  {
+
+    printMatrix(d + i * nstates, nstates, 1);
+    printMatrix(q_r + (i * (ninputs + nstates)), nstates, 1);
+    printMatrix(q_r + (i * (ninputs + nstates) + nstates), ninputs, 1);
+  }
+}
+
+// Free allocated GPU memory
+cudaFree(d_Q_R);
+cudaFree(d_q_r);
+cudaFree(d_A_B);
+cudaFree(d_d);
+cudaFree(d_F_lambda);
+cudaFree(d_F_state);
+cudaFree(d_F_input);
 }

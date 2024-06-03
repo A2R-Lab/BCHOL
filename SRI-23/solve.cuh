@@ -13,6 +13,7 @@ __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
 
+
 namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
@@ -64,6 +65,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                d_F_state, s_F_state, inp_states * nhorizon * depth, 1, d_F_input, s_F_input);
   initializeBSTLevels(nhorizon, s_levels); // helps to build the tree
   block.sync();
+  
 
   // should solveLeaf in parallel, each block per time step
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
@@ -178,6 +180,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         }
       }
     }
+
 
     // Calc Inner Products Bbar and bbar (to solve for y)
     for (uint32_t b_ind = block_id; b_ind < L; b_ind += grid_dim)
@@ -328,6 +331,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       }
     }
     block.sync();
+
 
     // COPY back to RAM
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
