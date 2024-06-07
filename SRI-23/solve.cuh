@@ -20,8 +20,8 @@ namespace cgrps = cooperative_groups;
  */
 template <typename T>
 __global__ void solve_Kernel(uint32_t nhorizon,
-                               uint32_t ninputs,
                                uint32_t nstates,
+                               uint32_t ninputs,
                                T *d_Q_R,
                                T *d_q_r,
                                T *d_A_B,
