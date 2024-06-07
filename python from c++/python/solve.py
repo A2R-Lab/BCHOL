@@ -2,6 +2,7 @@
 
 import pdb
 import copy
+import scipy
 import sys
 import math
 import numpy as np
@@ -103,9 +104,10 @@ binary_tree = nested_dissect.initBTlevel(nhorizon)
 print("tree",binary_tree)
 
 #create F_lambda, F_state, F_input
-F_lambda = np.zeros((nhorizon,nstates,nstates))
-F_state = np.zeros((nhorizon,nstates,nstates))
-F_input = np.zeros((nhorizon,nstates,ninputs))
+F_lambda = np.zeros((nhorizon*depth,nstates,nstates))
+F_state = np.zeros((nhorizon*depth,nstates,nstates))
+F_input = np.zeros((nhorizon*depth,nstates,ninputs))
+print(scipy.linalg.cholesky(Q[0]))
 
 #solve_leaf
 

@@ -14,6 +14,7 @@ __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
 
 
+
 namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
@@ -46,7 +47,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
   const uint32_t dyn_step = states_sq + inp_states;
   const uint32_t depth = log2f(nhorizon);
 
-  // initialize shared memory
+  // // initialize shared memory
   extern __shared__ T s_temp[];
   T *s_Q_R = s_temp;
   T *s_q_r = s_Q_R + (cost_step)*nhorizon;

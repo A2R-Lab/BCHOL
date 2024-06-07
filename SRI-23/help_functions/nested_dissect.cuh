@@ -88,7 +88,7 @@ __device__ void solveLeaf(int *s_levels,
     cholSolve_InPlace<float>(R, r, false, ninputs, 1);             // zu = R\zu
 
     // Solve the block system of eqn (!overwriting d and q_r vectors!)
-    zy_temp = &s_F_state[nhorizon * states_sq];
+    zy_temp = &s_F_state[nhorizon * states_sq]; //why>
     glass::copy<float>(nstates, 1.0, d, zy_temp);
     glass::copy<float>(nstates, 1.0, q, d);
     __syncthreads();
@@ -155,9 +155,9 @@ __device__ void solveLeaf(int *s_levels,
  */
 template <typename T>
 __device__ void factorInnerProduct(T *s_A_B,
-                                   T *fact_state,
-                                   T *fact_input,
-                                   T *fact_lambda,
+                                   T *s_F_state,
+                                   T *s_F_input,
+                                   T *s_F_lambda,
                                    int index,
                                    int fact_level,
                                    uint32_t nstates,
@@ -171,12 +171,12 @@ __device__ void factorInnerProduct(T *s_A_B,
   float *C1_input = s_A_B + (index * dyn_step + nstates * nstates);
 
   uint32_t linear_index = index + nhorizon * fact_level;
-  float *F1_state = fact_state + linear_index * (nstates * nstates);
-  float *F1_input = fact_input + linear_index * (ninputs * nstates);
+  float *F1_state = s_F_state + linear_index * (nstates * nstates);
+  float *F1_input = s_F_input + linear_index * (ninputs * nstates);
 
   linear_index = (index + 1) + nhorizon * fact_level;
-  float *F2_state = fact_state + linear_index * (nstates * nstates);
-  float *S = fact_lambda + linear_index * (nstates * nstates); // F2_lambda
+  float *F2_state = s_F_state + linear_index * (nstates * nstates);
+  float *S = s_F_lambda + linear_index * (nstates * nstates); // F2_lambda
 
   dot_product<float>(nstates, nstates, nstates, 1.0, C1_state, F1_state, -1.0, S, cgrps::this_thread_block()); // S = C1x'F1x
   dot_product<float>(nstates, ninputs, nstates, 1.0, C1_input, F1_input, 1.0, S, cgrps::this_thread_block());
@@ -260,7 +260,7 @@ __device__ void factorInnerProduct_sol(T *s_A_B,
  * @param upper_level Level index for the right-hand-side. @p upper_level > @p level.
  */
 template <typename T>
-__device__ void SolveCholeskyFactor(T *fact_lambda,
+__device__ void SolveCholeskyFactor(T *s_F_lambda,
                                     int index,
                                     int level,
                                     int upper_level,
@@ -268,8 +268,8 @@ __device__ void SolveCholeskyFactor(T *fact_lambda,
                                     int ninputs,
                                     int nhorizon)
 {
-  float *Sbar = fact_lambda + ((index + 1) + nhorizon * level) * nstates * nstates;
-  float *f = fact_lambda + ((index + 1) + nhorizon * upper_level) * nstates * nstates;
+  float *Sbar = s_F_lambda + ((index + 1) + nhorizon * level) * nstates * nstates;
+  float *f = s_F_lambda + ((index + 1) + nhorizon * upper_level) * nstates * nstates;
 
   cholSolve_InPlace<float>(Sbar, f, 0, nstates, nstates);
 }
@@ -349,9 +349,9 @@ __device__ bool shouldCalcLambda(int index, int i, int nhorizon, int *levels)
  * nhorizon                 KKT constants
  */
 template <typename T>
-__device__ void updateShur(T *fact_state,
-                           T *fact_input,
-                           T *fact_lambda,
+__device__ void updateShur(T *s_F_state,
+                           T *s_F_input,
+                           T *s_F_lambda,
                            int index,
                            int i,
                            int level,
@@ -370,17 +370,17 @@ __device__ void updateShur(T *fact_state,
   float *F_lambda;
 
   int linear_index = (index + 1) + nhorizon * upper_level;
-  float *f = fact_lambda + (linear_index * nstates * nstates);
+  float *f = s_F_lambda + (linear_index * nstates * nstates);
 
   linear_index = i + nhorizon * upper_level;
-  g_state = fact_state + (linear_index * (nstates * nstates));
-  g_input = fact_input + (linear_index * (nstates * ninputs));
-  g_lambda = fact_lambda + (linear_index * nstates * nstates);
+  g_state = s_F_state + (linear_index * (nstates * nstates));
+  g_input = s_F_input + (linear_index * (nstates * ninputs));
+  g_lambda = s_F_lambda + (linear_index * nstates * nstates);
 
   linear_index = i + nhorizon * level;
-  F_state = fact_state + linear_index * nstates * nstates;
-  F_input = fact_input + linear_index * nstates * ninputs;
-  F_lambda = fact_lambda + linear_index * nstates * nstates;
+  F_state = s_F_state + linear_index * nstates * nstates;
+  F_input = s_F_input + linear_index * nstates * ninputs;
+  F_lambda = s_F_lambda + linear_index * nstates * nstates;
 
   if (calc_lambda)
   {
@@ -419,9 +419,9 @@ __device__ void updateShur(T *fact_state,
  * nhorizon                 KKT constants
  */
 template <typename T>
-__device__ void updateShur_sol(T *fact_state,
-                               T *fact_input,
-                               T *fact_lambda,
+__device__ void updateShur_sol(T *s_F_state,
+                               T *s_F_input,
+                               T *s_F_lambda,
                                T *s_q_r,
                                T *s_d,
                                int index,
@@ -452,9 +452,9 @@ __device__ void updateShur_sol(T *fact_state,
 
   // from fact, looks at level
   int linear_index = i + nhorizon * level;
-  F_state = fact_state + linear_index * nstates * nstates;
-  F_input = fact_input + linear_index * nstates * ninputs;
-  F_lambda = fact_lambda + linear_index * nstates * nstates;
+  F_state = s_F_state + linear_index * nstates * nstates;
+  F_input = s_F_input + linear_index * nstates * ninputs;
+  F_lambda = s_F_lambda + linear_index * nstates * nstates;
 
   if (calc_lambda)
   {
