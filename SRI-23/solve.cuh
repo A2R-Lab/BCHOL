@@ -96,7 +96,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       int prev_level = s_levels[ind - 1];
       glass::copy(states_sq, s_F_state + ((prev_level * nhorizon + ind) * states_sq),
                   d_F_state + ((prev_level * nhorizon + ind) * states_sq));
-      block.sync();
 
       if (ind < nhorizon - 1)
       {
@@ -105,10 +104,8 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                      d_F_input + (inp_states * (cur_level * nhorizon + ind)),
                      states_sq, 1, s_F_state + +(states_sq * (cur_level * nhorizon + ind)),
                      d_F_state + (states_sq * (cur_level * nhorizon + ind)));
-        block.sync();
       }
     }
-    block.sync();
   }
 
   // update the shared ONLY of the soln vector (factors updated in main loop)
@@ -132,7 +129,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
     // COPY
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
     {
-
       uint32_t ind = s_tree_result[b_id];
       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
       {
@@ -143,7 +139,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                     s_F_state + (states_sq * (cur_level * nhorizon + ind)));
         glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
                     s_F_input + (inp_states * (cur_level * nhorizon + ind)));
-        block.sync();
+
         // copy next_ind
         uint32_t next_ind = ind + 1;
         glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
@@ -152,9 +148,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
                     s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
         glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
                     s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
-        block.sync();
       }
-      block.sync();
     }
 
     // copy for update Shur (double copying here a LOT,try to find a better way)
@@ -177,7 +171,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
             glass::copy(inp_states, d_F_input + (inp_states * ind),
                         s_F_input + (inp_states * ind));
           }
-          block.sync();
         }
       }
     }
@@ -194,7 +187,6 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         uint32_t upper_level = level + (ind % cur_depth);
         uint32_t lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1;
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
-        block.sync();
       }
     }
 
@@ -205,6 +197,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       uint32_t lin_ind = index + nhorizon * level;
       float *S = s_F_lambda + (states_sq * (lin_ind + 1));
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
+      block.sync();
     }
 
     // Solve with Cholesky factor for y
@@ -268,7 +261,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
         glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
                     d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
       }
-      block.sync();
+      block.sync(); //not needed
     }
     grid.sync();
   }

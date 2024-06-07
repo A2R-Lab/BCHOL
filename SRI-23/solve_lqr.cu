@@ -80,8 +80,8 @@ __host__ int main()
 
   // Launch CUDA kernel with block and grid dimensions
   // when increasing blocksize to 32 not working
-  std::uint32_t blockSize = 32;
-  std::uint32_t gridSize = 8;
+  std::uint32_t blockSize =512;
+  std::uint32_t gridSize = 16;
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
 
