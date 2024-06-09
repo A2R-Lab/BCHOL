@@ -205,6 +205,7 @@ __global__ void solve_Kernel(uint32_t nhorizon,
       uint32_t lin_ind = index + nhorizon * level;
       float *S = s_F_lambda + (states_sq * (lin_ind + 1));
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
+      block.sync();
     }
 
     // Solve with Cholesky factor for y

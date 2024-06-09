@@ -39,7 +39,7 @@ void write_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates,
     // Write only Q during last timestep
     for (int i = 0; i < states_sq; ++i)
     {
-        fout << "," << Q_R[(nhorizon - 2) * cost_step + i];
+        fout << "," << Q_R[(nhorizon - 1) * cost_step + i];
     }
 
     // Write q_r
@@ -53,7 +53,7 @@ void write_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates,
     // write only q for the last timestep
     for (int i = 0; i < nstates; ++i)
     {
-        fout << "," << q_r[(nhorizon - 2) * states_s_controls + i];
+        fout << "," << q_r[(nhorizon - 1) * states_s_controls + i];
     }
 
     // Write A_B
@@ -121,7 +121,7 @@ void write_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates,
     // write only Q during last timestep
     for (int i = 0; i < states_sq; ++i)
     {
-        fout << "," << Q_R[(nhorizon - 2) * cost_step + i];
+        fout << "," << Q_R[(nhorizon - 1) * cost_step + i];
     }
 
     // Write q_r
@@ -135,7 +135,7 @@ void write_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates,
     // write only q for the last timestep
     for (int i = 0; i < nstates; ++i)
     {
-        fout << "," << q_r[(nhorizon - 2) * states_s_controls + i];
+        fout << "," << q_r[(nhorizon - 1) * states_s_controls + i];
     }
     // Write A_B
     for (int timestep = 0; timestep < nhorizon - 1; ++timestep)

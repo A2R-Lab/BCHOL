@@ -449,19 +449,10 @@ __host__ int main()
     printf("Soln\n");
     printMatrix(soln, (state_size + state_size+ control_size) * 2, 1);
   }
+  
+  std::cout<<"size "<<soln_size<<std::endl;
+  printMatrix(my_soln,soln_size,1);
 
-  if (!true)
-  {
-    printf("CHECK FINAL RESULTS on host\n");
-
-    for (unsigned i = 0; i < knot_points; i++)
-    {
-
-      printMatrix(d + i * state_size, state_size, 1);
-      printMatrix(q_r + (i * (state_size + state_size)), state_size, 1);
-      printMatrix(q_r + (i * (control_size + state_size) + state_size), control_size, 1);
-    }
-  }
 
   // Free allocated GPU memory
   gpuErrchk(cudaFree(d_Q_R));
