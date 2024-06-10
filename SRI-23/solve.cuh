@@ -15,6 +15,7 @@ __device__ int error_flag = 0;
 
 
 
+
 namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
  */
