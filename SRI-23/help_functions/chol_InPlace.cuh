@@ -3,6 +3,7 @@
 #include <cooperative_groups.h>
 namespace cgrps = cooperative_groups;
 #include <cmath>
+#include "lowerBackSub.cuh"
 
 /**
  * @brief Perform a Cholesky decomposition in place.
@@ -48,39 +49,6 @@ void chol_InPlace(uint32_t n, T *s_A,cgrps::thread_group g = cgrps::this_thread_
     }
 }
 
-
-// template <typename T> 
-// __device__ 
-// void chol_InPlace(uint32_t n,
-//                         T *s_A,
-//                         cgrps::thread_group g = cgrps::this_thread_block())
-// {
-//     for (unsigned row = 0; row < n; row++) {
-//         if (g.thread_rank() == 0){
-//             T sum = 0;
-//             T val = s_A[n*row+row]; //entry Ljj
-//             for(uint32_t row_l = 0 ; row_l < row; row_l++) {
-//                 sum += pow(s_A[row_l*n+row],2);
-//             }
-//             s_A[row*n+row] = sqrt(val - sum);
-
-//         }
-//         g.sync(); //here we computed the diagonal entry of the Matrix
-        
-//         // compute the rest of the row  
-//         for(unsigned col = g.thread_rank()+ row +1; col < n; col += g.size()) 
-//         {
-//             T sum = 0;
-//             for(uint32_t k = 0; k < row; k++) {
-//                 sum += s_A[k*n+col]*s_A[k*n+row];
-//             }
-//             s_A[row*n+col] = (1.0/s_A[row*n+row])*(s_A[row*n+col]-sum);
-//         }
-//         g.sync();
-//     }
-// }
-
-
 /**
  * @brief Perform a Cholesky decomposition in place.
  *
@@ -120,4 +88,13 @@ void chol_InPlace_r(uint32_t n,
         }
         g.sync();
     }
+}
+
+
+//Solves linear system of equations with Cholesky
+template <typename T>
+__device__
+void cholSolve_InPlace(T *s_A, T *s_b, bool istransposed, int n, int m, cgrps::thread_group g = cgrps::this_thread_block()) {
+    lowerBackSub_InPlace<T>(s_A, s_b, 0, n, m, g);
+    lowerBackSub_InPlace<T>(s_A, s_b, 1, n, m, g);
 }

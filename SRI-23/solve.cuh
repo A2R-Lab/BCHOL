@@ -4,9 +4,7 @@
 #include <cmath>
 #include <cooperative_groups.h>
 #include "../GLASS/glass.cuh"
-#include "./help_functions/print_debug.cuh"
-#include "./help_functions/nested_dissect.cuh"
-#include "./help_functions/tree_functs.cuh"
+#include "helpf.cuh"
 __device__ const bool DEBUG = true;
 __device__ const bool SAFE_MOOD = true;
 __device__ const int BLOCK = 0;
@@ -47,7 +45,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   const uint32_t cost_step = states_sq + inputs_sq;
   const uint32_t dyn_step = states_sq + inp_states;
   const uint32_t depth = log2f(nhorizon);
-  
+
   //maybe unneccesary
   const uint32_t Q_R_size = (cost_step)*(nhorizon-1)+states_sq;
   const uint32_t q_r_size =(ninputs + nstates) * (nhorizon-1)+nstates;

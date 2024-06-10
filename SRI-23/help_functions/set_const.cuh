@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 #include <cooperative_groups.h>
 

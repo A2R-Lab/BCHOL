@@ -8,7 +8,6 @@
 
 #include "./copy_mult.cuh"
 #include "./chol_InPlace.cuh"
-#include "./chol_SolveInPlace.cuh"
 #include "./diag_Matrix_set.cuh"
 #include "./set_const.cuh"
 #include "./dot_product.cuh"

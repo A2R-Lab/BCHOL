@@ -1,13 +1,13 @@
+#pragma once
+#include <cstdint>
+#include <cooperative_groups.h>
+namespace cgrps = cooperative_groups;
+
 /*
     Computes dot product of A and B, and sum result to C
     Given A, B, C
     Updates C to alpha A'T B + beta*C 
 */
-
-#include <cstdint>
-#include <cooperative_groups.h>
-namespace cgrps = cooperative_groups;
-
 template <typename T>
 __device__
 void dot_product(std::uint32_t m,

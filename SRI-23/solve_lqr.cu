@@ -3,7 +3,7 @@
 #include <numeric>
 #include <cmath>
 #include "solve.cuh"
-#include "./help_functions/csv.cuh"
+#include "helpf.cuh"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <vector>
@@ -92,11 +92,11 @@ __host__ int main()
   std::uint32_t blockSize = 512;
   std::uint32_t gridSize = 16;
 
-  uint32_t shared_mem = KKT_C_DENSE_SIZE_BYTES+KKT_G_DENSE_SIZE_BYTES+KKT_c_SIZE_BYTES+KKT_g_SIZE_BYTES+
+  uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES+KKT_G_DENSE_SIZE_BYTES+KKT_c_SIZE_BYTES+KKT_g_SIZE_BYTES+
   KKT_FCONTROL_SIZE_BYTES+KKT_FSTATES_SIZE_BYTES+KKT_FSTATES_SIZE_BYTES+(knot_points*2*sizeof(int));
 
-  const void *kernelFunc = reinterpret_cast<const void *>(solve_BCHOL<float>);
-  void *args[] = {// prepare the kernel arguments
+  const void *bchol_kernelFunc = reinterpret_cast<const void *>(solve_BCHOL<float>);
+  void *bchol_kernelArgs[] = {// prepare the kernel arguments
                   &knot_points,
                   &control_size,
                   &state_size,
@@ -114,7 +114,7 @@ __host__ int main()
   gpuErrchk(cudaEventCreate(&stop));
   gpuErrchk(cudaEventRecord(start, 0));
   gpuErrchk(cudaDeviceSynchronize());
-  gpuErrchk(cudaLaunchCooperativeKernel(kernelFunc, gridSize, blockSize, args, shared_mem));
+  gpuErrchk(cudaLaunchCooperativeKernel(bchol_kernelFunc, gridSize, blockSize, bchol_kernelArgs, bchol_shared_mem_size));
   gpuErrchk(cudaDeviceSynchronize());
   gpuErrchk(cudaPeekAtLastError());
 
