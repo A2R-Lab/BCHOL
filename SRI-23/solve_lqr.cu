@@ -88,11 +88,12 @@ __host__ int main()
   gpuErrchk(cudaMemcpy(d_F_input, F_input, KKT_FCONTROL_SIZE_BYTES, cudaMemcpyHostToDevice));
 
   // Launch CUDA kernel with block and grid dimensions
-  // when increasing blocksize to 32 not working
+  //find a way to automate number of threads and blocks
   std::uint32_t blockSize = 512;
   std::uint32_t gridSize = 16;
 
-  uint32_t shared_mem = 5 * 2160 * sizeof(float);
+  uint32_t shared_mem = KKT_C_DENSE_SIZE_BYTES+KKT_G_DENSE_SIZE_BYTES+KKT_c_SIZE_BYTES+KKT_g_SIZE_BYTES+
+  KKT_FCONTROL_SIZE_BYTES+KKT_FSTATES_SIZE_BYTES+KKT_FSTATES_SIZE_BYTES+(knot_points*2*sizeof(int));
 
   const void *kernelFunc = reinterpret_cast<const void *>(solve_BCHOL<float>);
   void *args[] = {// prepare the kernel arguments

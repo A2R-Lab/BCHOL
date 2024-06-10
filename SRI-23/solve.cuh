@@ -47,13 +47,17 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   const uint32_t cost_step = states_sq + inputs_sq;
   const uint32_t dyn_step = states_sq + inp_states;
   const uint32_t depth = log2f(nhorizon);
+  
+  //maybe unneccesary
+  const uint32_t Q_R_size = (cost_step)*(nhorizon-1)+states_sq;
+  const uint32_t q_r_size =(ninputs + nstates) * (nhorizon-1)+nstates;
 
   // // initialize shared memory
   extern __shared__ T s_temp[];
   T *s_Q_R = s_temp;
-  T *s_q_r = s_Q_R + (cost_step)*nhorizon;
-  T *s_A_B = s_q_r + (ninputs + nstates) * nhorizon;
-  T *s_d = s_A_B + (dyn_step)*nhorizon;
+  T *s_q_r = s_Q_R + Q_R_size;
+  T *s_A_B = s_q_r + q_r_size;
+  T *s_d = s_A_B + (dyn_step)*(nhorizon-1);
   T *s_F_lambda = s_d + nstates * nhorizon;
   T *s_F_state = s_F_lambda + (states_sq * nhorizon * depth);
   T *s_F_input = s_F_state + (states_sq * nhorizon * depth);
@@ -61,8 +65,8 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   int *s_tree_result = (int *)(s_levels + nhorizon);
 
   // move ram to shared
-  copy2<float>(cost_step * nhorizon, 1, d_Q_R, s_Q_R, dyn_step * nhorizon, 1, d_A_B, s_A_B);
-  copy2<float>((nstates + ninputs) * nhorizon, -1.0, d_q_r, s_q_r, nstates * nhorizon, -1.0, d_d, s_d);
+  copy2<float>(Q_R_size, 1, d_Q_R, s_Q_R, dyn_step * (nhorizon-1), 1, d_A_B, s_A_B);
+  copy2<float>(q_r_size, -1.0, d_q_r, s_q_r, nstates * nhorizon, -1.0, d_d, s_d);
   copy3<float>(states_sq * nhorizon * depth, 1, d_F_lambda, s_F_lambda, states_sq * nhorizon * depth, 1,
                d_F_state, s_F_state, inp_states * nhorizon * depth, 1, d_F_input, s_F_input);
   initializeBSTLevels(nhorizon, s_levels); // helps to build the tree
@@ -112,7 +116,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   // update the shared ONLY of the soln vector (factors updated in main loop)
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
-    copy2<float>((nstates + ninputs) * nhorizon, 1, d_q_r, s_q_r, nstates * nhorizon, 1, d_d, s_d);
+    copy2<float>(q_r_size, 1, d_q_r, s_q_r, nstates * nhorizon, 1, d_d, s_d);
   }
   grid.sync();
 
