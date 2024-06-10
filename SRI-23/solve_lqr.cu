@@ -334,8 +334,65 @@ __host__ int main()
                            -10.380933150923628,
                            -23.433992381590347};
   float my_soln[soln_size];
+
+  float Q_R_1[((states_sq + controls_sq) * knot_points - controls_sq)];
+  float q_r_1[((state_size + control_size) * knot_points - control_size)];
+  float A_B_1[(states_sq + states_p_controls) * (knot_points - 1)];
+  float d_1[state_size * knot_points];
+  float soln_1[soln_size];
+  float my_soln_1[soln_size];
   // Reading the LQR problem
-  // read_csv("lqr_prob8.csv", nhorizon, nstates, ninputs, Q_R, q_r, A_B, d, soln);
+  write_csv("lqr_prob8n.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d, soln);
+  read_csv("lqr_prob8n.csv", knot_points, state_size, control_size, Q_R_1, q_r_1, A_B_1, d_1, soln_1);
+
+  // check equality
+  if (checkEquality(Q_R, Q_R_1, ((states_sq + controls_sq) * knot_points - controls_sq)))
+  {
+    printf("QR passed\n");
+  }
+  else
+  {
+    printf("QR NOT passed\n");
+    for (int i = 0; i < knot_points; ++i)
+    {
+      if (checkEquality(Q_R + i * (states_sq + controls_sq), Q_R_1 + i*(states_sq + controls_sq), states_sq))
+      {
+        printf("NOT EQUAL %d\n",i);
+        printf("FIRST\n");
+        printMatrix(Q_R + i * (states_sq + controls_sq), state_size, state_size);
+        printf("SECOND\n");
+        printMatrix(Q_R_1 + i * (states_sq + controls_sq), state_size, state_size);
+      }
+    }
+    for (int i = 0; i < knot_points - 1; ++i)
+    {
+      printf("FIRST R\n");
+      printMatrix(Q_R + i * states_sq, control_size, control_size);
+      printf("SECOND\n");
+      printMatrix(Q_R_1 + i * states_sq, control_size, control_size);
+    }
+  }
+
+  if (checkEquality(q_r, q_r_1, ((state_size + control_size) * knot_points - control_size)))
+  {
+    printf("qr passed\n");
+  }
+  else
+    printf("qr NOT passed\n");
+
+  if (checkEquality(A_B, A_B_1, (states_sq + states_p_controls) * (knot_points - 1)))
+  {
+    printf("AB passed\n");
+  }
+  else
+    printf("AB NOT passed\n");
+
+  if (checkEquality(d, d_1, state_size * knot_points))
+  {
+    printf("d passed\n");
+  }
+  else
+    printf("d NOT passed\n");
 
   // Creating Factorization
   float F_lambda[fstates_size];
@@ -356,7 +413,7 @@ __host__ int main()
 
   float *d_Q_R, *d_q_r, *d_A_B, *d_d,
       *d_F_lambda, *d_F_state, *d_F_input;
-      
+
   gpuErrchk(cudaMalloc((void **)&d_Q_R, KKT_G_DENSE_SIZE_BYTES));
   gpuErrchk(cudaMalloc((void **)&d_q_r, KKT_g_SIZE_BYTES));
   gpuErrchk((cudaMalloc((void **)&d_A_B, KKT_C_DENSE_SIZE_BYTES)));
@@ -423,7 +480,7 @@ __host__ int main()
   gpuErrchk(cudaEventElapsedTime(&time, start, stop));
   printf("\nSolve Time:  %3.1f ms \n", time);
 
- for (uint32_t timestep = 0; timestep < knot_points; ++timestep)
+  for (uint32_t timestep = 0; timestep < knot_points; ++timestep)
   {
     for (uint32_t i = 0; i < state_size; ++i)
     {
@@ -445,12 +502,11 @@ __host__ int main()
     printf("my_soln\n");
     printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
     printf("Soln\n");
-    printMatrix(soln, (state_size + state_size+ control_size) * 2, 1);
+    printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
   }
-  
-  std::cout<<"size "<<soln_size<<std::endl;
-  printMatrix(my_soln,soln_size,1);
 
+  std::cout << "size " << soln_size << std::endl;
+  printMatrix(my_soln, soln_size, 1);
 
   // Free allocated GPU memory
   gpuErrchk(cudaFree(d_Q_R));
@@ -460,5 +516,4 @@ __host__ int main()
   gpuErrchk(cudaFree(d_F_lambda));
   gpuErrchk(cudaFree(d_F_state));
   gpuErrchk(cudaFree(d_F_input));
-
 }
