@@ -94,7 +94,7 @@ __host__ int main()
 
   uint32_t shared_mem = 5 * 2160 * sizeof(float);
 
-  const void *kernelFunc = reinterpret_cast<const void *>(solve_Kernel<float>);
+  const void *kernelFunc = reinterpret_cast<const void *>(solve_BCHOL<float>);
   void *args[] = {// prepare the kernel arguments
                   &knot_points,
                   &control_size,
