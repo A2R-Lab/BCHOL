@@ -234,7 +234,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
             std::cerr << "Error reading Q_R from file: " << filename << std::endl;
             return;
         }
-        Q_R[(nhorizon - 2) * cost_step + i] = std::stod(token);
+        Q_R[(nhorizon - 1) * cost_step + i] = std::stod(token);
     }
 
     // Read q_r
@@ -258,7 +258,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
             std::cerr << "Error reading q_r from file: " << filename << std::endl;
             return;
         }
-        q_r[(nhorizon - 2) * (nstates + ninputs) + i] = std::stod(token);
+        q_r[(nhorizon - 1) * (nstates + ninputs) + i] = std::stod(token);
     }
 
     // Read A_B
@@ -354,7 +354,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
             std::cerr << "Error reading Q_R from file: " << filename << std::endl;
             return;
         }
-        Q_R[(nhorizon - 2) * cost_step + i] = std::stod(token);
+        Q_R[(nhorizon - 1) * cost_step + i] = std::stod(token);
     }
 
     // Read q_r
@@ -378,7 +378,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
             std::cerr << "Error reading q_r from file: " << filename << std::endl;
             return;
         }
-        q_r[(nhorizon - 2) * (nstates + ninputs) + i] = std::stod(token);
+        q_r[(nhorizon - 1) * (nstates + ninputs) + i] = std::stod(token);
     }
 
     // Read A_B
