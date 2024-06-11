@@ -85,7 +85,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
                  s_q_r + (ind * (ninputs + nstates)), d_q_r + (ind * (ninputs + nstates)));
 
     // copy Q_R
-    glass::copy(states_sq + inputs_sq, s_Q_R + (ind * (states_sq + inputs_sq)),
+    glass_yana::copy(states_sq + inputs_sq, s_Q_R + (ind * (states_sq + inputs_sq)),
                 d_Q_R + (ind * (states_sq + inputs_sq)));
 
     if (ind == 0)
@@ -97,7 +97,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     {
       // otherwise copy F-state prev
       int prev_level = s_levels[ind - 1];
-      glass::copy(states_sq, s_F_state + ((prev_level * nhorizon + ind) * states_sq),
+      glass_yana::copy(states_sq, s_F_state + ((prev_level * nhorizon + ind) * states_sq),
                   d_F_state + ((prev_level * nhorizon + ind) * states_sq));
 
       if (ind < nhorizon - 1)
@@ -136,20 +136,20 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       for (uint32_t cur_level = level; cur_level < depth; cur_level++)
       {
         // copy ind and ind+ 1 for current level and upper levels
-        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
+        glass_yana::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + ind)),
                     s_F_lambda + (states_sq * (cur_level * nhorizon + ind)));
-        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
+        glass_yana::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + ind)),
                     s_F_state + (states_sq * (cur_level * nhorizon + ind)));
-        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
+        glass_yana::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + ind)),
                     s_F_input + (inp_states * (cur_level * nhorizon + ind)));
 
         // copy next_ind
         uint32_t next_ind = ind + 1;
-        glass::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
+        glass_yana::copy(states_sq, d_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)),
                     s_F_lambda + (states_sq * (cur_level * nhorizon + next_ind)));
-        glass::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
+        glass_yana::copy(states_sq, d_F_state + (states_sq * (cur_level * nhorizon + next_ind)),
                     s_F_state + (states_sq * (cur_level * nhorizon + next_ind)));
-        glass::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
+        glass_yana::copy(inp_states, d_F_input + (inp_states * (cur_level * nhorizon + next_ind)),
                     s_F_input + (inp_states * (cur_level * nhorizon + next_ind)));
       }
     }
@@ -167,11 +167,11 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
           {
 
             ind = k + nhorizon * cur_level;
-            glass::copy(states_sq, d_F_lambda + (states_sq * ind),
+            glass_yana::copy(states_sq, d_F_lambda + (states_sq * ind),
                         s_F_lambda + (states_sq * ind));
-            glass::copy(states_sq, d_F_state + (states_sq * ind),
+            glass_yana::copy(states_sq, d_F_state + (states_sq * ind),
                         s_F_state + (states_sq * ind));
-            glass::copy(inp_states, d_F_input + (inp_states * ind),
+            glass_yana::copy(inp_states, d_F_input + (inp_states * ind),
                         s_F_input + (inp_states * ind));
           }
         }
@@ -233,11 +233,11 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
                           calc_lambda, nstates, ninputs, nhorizon);
         // copy g
         block.sync();
-        glass::copy(states_sq, s_F_lambda + (states_sq * g),
+        glass_yana::copy(states_sq, s_F_lambda + (states_sq * g),
                     d_F_lambda + (states_sq * g));
-        glass::copy(states_sq, s_F_state + (states_sq * g),
+        glass_yana::copy(states_sq, s_F_state + (states_sq * g),
                     d_F_state + (states_sq * g));
-        glass::copy(inp_states, s_F_input + (inp_states * g),
+        glass_yana::copy(inp_states, s_F_input + (inp_states * g),
                     d_F_input + (inp_states * g));
       }
     }
@@ -248,20 +248,20 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       uint32_t ind = s_tree_result[b_id];
       for (uint32_t copy_level = level; copy_level < depth; copy_level++)
       {
-        glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
+        glass_yana::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + ind)),
                     d_F_lambda + (states_sq * (copy_level * nhorizon + ind)));
-        glass::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
+        glass_yana::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + ind)),
                     d_F_state + (states_sq * (copy_level * nhorizon + ind)));
-        glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
+        glass_yana::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + ind)),
                     d_F_input + (inp_states * (copy_level * nhorizon + ind)));
 
         // copying ind+1
         uint32_t next_ind = ind + 1;
-        glass::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
+        glass_yana::copy(states_sq, s_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)),
                     d_F_lambda + (states_sq * (copy_level * nhorizon + next_ind)));
-        glass::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
+        glass_yana::copy(states_sq, s_F_state + (states_sq * (copy_level * nhorizon + next_ind)),
                     d_F_state + (states_sq * (copy_level * nhorizon + next_ind)));
-        glass::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
+        glass_yana::copy(inp_states, s_F_input + (inp_states * (copy_level * nhorizon + next_ind)),
                     d_F_input + (inp_states * (copy_level * nhorizon + next_ind)));
       }
       block.sync(); //not needed
@@ -283,15 +283,15 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       for (uint32_t k = b_id * num_copies; k < b_id * num_copies + num_copies; k++)
       {
         uint32_t ind = k + level * nhorizon;
-        glass::copy((nstates + ninputs), d_q_r + k * (nstates + ninputs), s_q_r + k * (nstates + ninputs));
-        glass::copy(nstates, d_d + k * nstates, s_d + k * nstates);
+        glass_yana::copy((nstates + ninputs), d_q_r + k * (nstates + ninputs), s_q_r + k * (nstates + ninputs));
+        glass_yana::copy(nstates, d_d + k * nstates, s_d + k * nstates);
 
         // copy the F_state
-        glass::copy(states_sq, d_F_lambda + (states_sq * ind),
+        glass_yana::copy(states_sq, d_F_lambda + (states_sq * ind),
                     s_F_lambda + (states_sq * ind));
-        glass::copy(states_sq, d_F_state + (states_sq * ind),
+        glass_yana::copy(states_sq, d_F_state + (states_sq * ind),
                     s_F_state + (states_sq * ind));
-        glass::copy(inp_states, d_F_input + (inp_states * ind),
+        glass_yana::copy(inp_states, d_F_input + (inp_states * ind),
                     s_F_input + (inp_states * ind));
       }
     }
@@ -339,13 +339,13 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       {
         uint32_t ind = k + level * nhorizon;
         // copy the soln
-        glass::copy((nstates + ninputs), s_q_r + k * (nstates + ninputs), d_q_r + k * (nstates + ninputs));
-        glass::copy((nstates), s_d + k * nstates, d_d + k * nstates);
-        glass::copy(states_sq, s_F_lambda + (states_sq * ind),
+        glass_yana::copy((nstates + ninputs), s_q_r + k * (nstates + ninputs), d_q_r + k * (nstates + ninputs));
+        glass_yana::copy((nstates), s_d + k * nstates, d_d + k * nstates);
+        glass_yana::copy(states_sq, s_F_lambda + (states_sq * ind),
                     d_F_lambda + (states_sq * ind));
-        glass::copy(states_sq, s_F_state + (states_sq * ind),
+        glass_yana::copy(states_sq, s_F_state + (states_sq * ind),
                     d_F_state + (states_sq * ind));
-        glass::copy(inp_states, s_F_input + (inp_states * ind),
+        glass_yana::copy(inp_states, s_F_input + (inp_states * ind),
                     d_F_input + (inp_states * ind));
       }
     }

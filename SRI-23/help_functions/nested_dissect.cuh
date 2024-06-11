@@ -77,10 +77,10 @@ __device__ void solveLeaf(int *s_levels,
     float *R = &s_Q_R[cost_step * index + states_sq];
 
     // Solve the block system of equations.
-    glass::copy<float>(nstates * nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
+    glass_yana::copy<float>(nstates * nstates, -1.0, A, F_lambda, cgrps::this_thread_block());
 
     // dont need to coz we initialized with 0s set_const(nstates*nstates,0, s_F_state);
-    glass::copy<float>(nstates * ninputs, 1.0, B, F_input); // copy  B_0
+    glass_yana::copy<float>(nstates * ninputs, 1.0, B, F_input); // copy  B_0
     chol_InPlace<float>(ninputs, R);
     __syncthreads();
     cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates); // Fu = R\B
@@ -88,12 +88,12 @@ __device__ void solveLeaf(int *s_levels,
 
     // Solve the block system of eqn (!overwriting d and q_r vectors!)
     zy_temp = &s_F_state[nhorizon * states_sq]; //why>
-    glass::copy<float>(nstates, 1.0, d, zy_temp);
-    glass::copy<float>(nstates, 1.0, q, d);
+    glass_yana::copy<float>(nstates, 1.0, d, zy_temp);
+    glass_yana::copy<float>(nstates, 1.0, q, d);
     __syncthreads();
-    glass::gemv<float>(nstates, nstates, -1.0, Q, zy_temp, -1.0, d); // zy = - Q * zy - zx
+    glass_yana::gemv<float>(nstates, nstates, -1.0, Q, zy_temp, -1.0, d); // zy = - Q * zy - zx
     __syncthreads();
-    glass::copy<float>(nstates, -1.0, zy_temp, q);
+    glass_yana::copy<float>(nstates, -1.0, zy_temp, q);
     __syncthreads();
     set_const<float>(nstates, 0.0, zy_temp); // initialize back to 0s
     chol_InPlace<float>(nstates, Q);
@@ -112,10 +112,10 @@ __device__ void solveLeaf(int *s_levels,
       __syncthreads();
       cholSolve_InPlace<float>(R, r, false, ninputs, 1); // zu = R \ zu
 
-      glass::copy<float>(nstates * nstates, A, F_state);
+      glass_yana::copy<float>(nstates * nstates, A, F_state);
       __syncthreads();
       cholSolve_InPlace<float>(Q, F_state, false, nstates, nstates);
-      glass::copy<float>(ninputs * nstates, 1.0, B, F_input);
+      glass_yana::copy<float>(ninputs * nstates, 1.0, B, F_input);
       __syncthreads();
       cholSolve_InPlace<float>(R, F_input, false, ninputs, nstates);
     }
@@ -383,10 +383,10 @@ __device__ void updateShur(T *s_F_state,
 
   if (calc_lambda)
   {
-    glass::gemm<float, 0>(nstates, nstates, nstates, -1.0, F_lambda, f, 1.0, g_lambda, cgrps::this_thread_block());
+    glass_yana::gemm<float, 0>(nstates, nstates, nstates, -1.0, F_lambda, f, 1.0, g_lambda, cgrps::this_thread_block());
   }
-  glass::gemm<float, 0>(nstates, nstates, nstates, -1.0, F_state, f, 1.0, g_state, cgrps::this_thread_block());
-  glass::gemm<float, 0>(ninputs, nstates, nstates, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
+  glass_yana::gemm<float, 0>(nstates, nstates, nstates, -1.0, F_state, f, 1.0, g_state, cgrps::this_thread_block());
+  glass_yana::gemm<float, 0>(ninputs, nstates, nstates, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
 }
 /** @brief Calculates \f$ x \f$ and \f$ z \f$ to complete the factorization at the current
  *        level for solution vector instead of factorization matrices
@@ -457,8 +457,8 @@ __device__ void updateShur_sol(T *s_F_state,
 
   if (calc_lambda)
   {
-    glass::gemm<float, 0>(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda, cgrps::this_thread_block());
+    glass_yana::gemm<float, 0>(nstates, nstates, 1, -1.0, F_lambda, f, 1.0, g_lambda, cgrps::this_thread_block());
   }
-  glass::gemm<float, 0>(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state, cgrps::this_thread_block());
-  glass::gemm<float, 0>(ninputs, nstates, 1, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
+  glass_yana::gemm<float, 0>(nstates, nstates, 1, -1.0, F_state, f, 1.0, g_state, cgrps::this_thread_block());
+  glass_yana::gemm<float, 0>(ninputs, nstates, 1, -1.0, F_input, f, 1.0, g_input, cgrps::this_thread_block());
 }
