@@ -29,7 +29,7 @@ __host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
  */
 __host__ __device__ bool checkEquality(float *array_a, float *array_b, uint32_t size)
 {
-    for (int i = 0; i < size; i++)
+    for (uint32_t i = 0; i < size; i++)
     {
         float x = array_a[i];
         float y = array_b[i];
@@ -136,7 +136,7 @@ __host__ __device__ void print_KKT(T *F_lambda, T *F_state, T *F_input, T *d,
 template <typename T>
 __host__ __device__ void print_soln(T *d, T *q_r, uint32_t nhorizon, uint32_t nstates, uint32_t ninputs)
 {
-    for (unsigned i = 0; i < nhorizon; i++)
+    for (uint32_t i = 0; i < nhorizon; i++)
     {
         printf("\nd%d: \n", i);
         printMatrix(d + i * nstates, 1, nstates);
@@ -167,7 +167,7 @@ template <typename T>
 __host__ __device__ void print_soln_ram_shared(T *s_d, T *s_q_r, T *d_d, T *d_q_r,
                                                uint32_t nhorizon, uint32_t nstates, uint32_t ninputs)
 {
-    for (unsigned i = 0; i < nhorizon; i++)
+    for (uint32_t i = 0; i < nhorizon; i++)
     {
         printf("\ns_d%d: \n", i);
         printMatrix(s_d + i * nstates, 1, nstates);
