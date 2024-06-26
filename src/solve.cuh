@@ -5,12 +5,12 @@
 #include <cooperative_groups.h>
 #include "../GLASS/glass.cuh"
 #include "helpf.cuh"
-__device__ const bool DEBUG2 = false;
 __device__ const bool DEBUG = true;
 __device__ const bool SAFE_MOOD = true;
 __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
+
 
 namespace cgrps = cooperative_groups;
 /** @brief The rsLQR solver, the main function of the solver
@@ -59,10 +59,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   T *s_F_input = s_F_state + (states_sq * nhorizon * depth);
   int *s_levels = (int *)s_F_input + (depth * inp_states * nhorizon);
   int *s_tree_result = (int *)(s_levels + nhorizon);
-  if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
-  {
-    printf("Launched kernel\n");
-  }
+
 
   // move ram to shared
   copy2<float>(Q_R_size, 1, d_Q_R, s_Q_R, dyn_step * (nhorizon - 1), 1, d_A_B, s_A_B);
@@ -75,9 +72,11 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   // should solveLeaf in parallel, each block per time step
   for (uint32_t ind = block_id; ind < nhorizon; ind += grid_dim)
   {
-    if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+    if (DEBUG && block_id == BLOCK && thread_id == THREAD)
     {
       printf("Launched solve_leaf\n");
+      printMatrix(s_d,nstates,1);
+    print_KKT(s_F_lambda,s_F_state,s_F_input,s_d,s_q_r,nhorizon,depth,nstates,ninputs);
     }
     solveLeaf<float>(s_levels, ind, nstates, ninputs, nhorizon,
                      s_Q_R, s_q_r, s_A_B, s_d,
@@ -115,7 +114,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       }
     }
   }
-  if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+  if (DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     printf("finished solve_leaf\n");
   }
@@ -129,7 +128,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
 
   for (uint32_t level = 0; level < depth; level++)
   {
-    if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+    if (DEBUG && block_id == BLOCK && thread_id == THREAD)
     {
       printf("started big loop %d \n", level);
     }
@@ -193,7 +192,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     // Calc Inner Products Bbar and bbar (to solve for y)
     for (uint32_t b_ind = block_id; b_ind < L; b_ind += grid_dim)
     {
-      if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+      if (DEBUG && block_id == BLOCK && thread_id == THREAD)
       {
         printf("started factorinner loop \n");
       }
@@ -211,7 +210,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     // Cholesky factorization of Bbar/bbar
     for (uint32_t leaf = block_id; leaf < L; leaf += grid_dim)
     {
-      if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+      if (DEBUG && block_id == BLOCK && thread_id == THREAD)
       {
         printf("started cholinplace loop \n");
       }
@@ -228,7 +227,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       // can add parallelization within threads here
       for (uint32_t t_id = 0; t_id < upper_levels; t_id += 1)
       {
-        if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+        if (DEBUG && block_id == BLOCK && thread_id == THREAD)
         {
           printf("started cholfactor loop \n");
         }
@@ -244,7 +243,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     // update SHUR - update x and z compliments
     for (uint32_t b_id = block_id; b_id < L; b_id += grid_dim)
     {
-      if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+      if (DEBUG && block_id == BLOCK && thread_id == THREAD)
       {
         printf("started shur loop \n");
       }
@@ -295,7 +294,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     }
     grid.sync();
   }
-  if (DEBUG2 && block_id == BLOCK && thread_id == THREAD)
+  if (DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     printf("finished fact big loop\n");
   }
@@ -381,7 +380,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     }
     grid.sync();
   }
-  if (DEBUG && block_id == BLOCK && thread_id == THREAD)
+  if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     uint32_t soln_size = (nstates + ninputs) * nhorizon - ninputs;
 

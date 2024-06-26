@@ -89,11 +89,11 @@ __host__ int main()
 
   // Launch CUDA kernel with block and grid dimensions
   // find a way to automate number of threads and blocks
-  std::uint32_t blockSize = 512;
-  std::uint32_t gridSize = 16;
+  std::uint32_t blockSize = 64;
+  std::uint32_t gridSize = 8;
 
   uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES + KKT_G_DENSE_SIZE_BYTES + KKT_c_SIZE_BYTES + KKT_g_SIZE_BYTES +
-                                   KKT_FCONTROL_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + (knot_points * 2 * sizeof(int));
+                                   KKT_FCONTROL_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + (knot_points * 3 * sizeof(int))+500;
 
   std::cout << "shared_mem: " << bchol_shared_mem_size << std::endl;
 
