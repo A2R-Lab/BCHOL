@@ -22,7 +22,7 @@ CUDA_LINK_LIBS= -lcudart
 
 OBJS = solve_lqr.o
 
-test: $(OBJS)
+rsLQR: $(OBJS)
 	$(CC) $(CC_FLAGS) $(OBJS) -o $@ $(CUDA_INC_DIR) $(CUDA_LIB_DIR) $(CUDA_LINK_LIBS)
 
 solve_lqr.o: solve_lqr.cu solve.cuh

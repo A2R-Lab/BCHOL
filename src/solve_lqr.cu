@@ -45,7 +45,7 @@ __host__ int main()
   float my_soln[soln_size];
 
   // // Reading the LQR problem
-  read_csv("lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d);
+  read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d);
 
   // Creating Factorization
   float F_lambda[fstates_size];
