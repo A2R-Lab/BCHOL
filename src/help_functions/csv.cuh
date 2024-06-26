@@ -7,8 +7,6 @@
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 
-
-
 /* Function to write LQR problem into a csv file when given also soln vector
  *
  *
@@ -38,54 +36,54 @@ void write_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates,
     const uint32_t dyn_step = states_sq + inp_states;
 
     // Write Q_R
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < cost_step; ++i)
+        for (uint32_t i = 0; i < cost_step; ++i)
         {
             fout << "," << Q_R[timestep * cost_step + i];
         }
     }
     // Write only Q during last timestep
-    for (int i = 0; i < states_sq; ++i)
+    for (uint32_t i = 0; i < states_sq; ++i)
     {
         fout << "," << Q_R[(nhorizon - 1) * cost_step + i];
     }
 
     // Write q_r
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < states_s_controls; ++i)
+        for (uint32_t i = 0; i < states_s_controls; ++i)
         {
             fout << "," << q_r[timestep * (states_s_controls) + i];
         }
     }
     // write only q for the last timestep
-    for (int i = 0; i < nstates; ++i)
+    for (uint32_t i = 0; i < nstates; ++i)
     {
         fout << "," << q_r[(nhorizon - 1) * states_s_controls + i];
     }
 
     // Write A_B
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < dyn_step; ++i)
+        for (uint32_t i = 0; i < dyn_step; ++i)
         {
             fout << "," << A_B[timestep * dyn_step + i];
         }
     }
 
     // Write d
-    for (int timestep = 0; timestep < nhorizon; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon; ++timestep)
     {
-        for (int i = 0; i < nstates; ++i)
+        for (uint32_t i = 0; i < nstates; ++i)
         {
             fout << "," << d[timestep * nstates + i];
         }
     }
 
-    int soln_size = nstates * nhorizon + ((nstates + ninputs) * nhorizon) - ninputs;
+    uint32_t soln_size = nstates * nhorizon + ((nstates + ninputs) * nhorizon) - ninputs;
     // Write soln
-    for (int timestep = 0; timestep < soln_size; ++timestep)
+    for (uint32_t timestep = 0; timestep < soln_size; ++timestep)
     {
         fout << "," << soln[timestep];
     }
@@ -123,51 +121,53 @@ void write_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates,
     const uint32_t states_s_controls = nstates + ninputs;
     const uint32_t cost_step = states_sq + inputs_sq;
     const uint32_t dyn_step = states_sq + inp_states;
-
+    printf("Starting to print\n");
     // Write Q_R
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < cost_step; ++i)
+        for (uint32_t i = 0; i < cost_step; ++i)
         {
             fout << "," << Q_R[timestep * cost_step + i];
         }
     }
     // write only Q during last timestep
-    for (int i = 0; i < states_sq; ++i)
+    for (uint32_t i = 0; i < states_sq; ++i)
     {
         fout << "," << Q_R[(nhorizon - 1) * cost_step + i];
     }
-
+    printf("Finished Q_R\n");
     // Write q_r
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < states_s_controls; ++i)
+        for (uint32_t i = 0; i < states_s_controls; ++i)
         {
             fout << "," << q_r[timestep * (states_s_controls) + i];
         }
     }
     // write only q for the last timestep
-    for (int i = 0; i < nstates; ++i)
+    for (uint32_t i = 0; i < nstates; ++i)
     {
         fout << "," << q_r[(nhorizon - 1) * states_s_controls + i];
     }
+    printf("Finished q_r\n");
     // Write A_B
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < dyn_step; ++i)
+        for (uint32_t i = 0; i < dyn_step; ++i)
         {
             fout << "," << A_B[timestep * dyn_step + i];
         }
     }
-
+    printf("Finished A_B\n");
     // Write d
-    for (int timestep = 0; timestep < nhorizon; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon; ++timestep)
     {
-        for (int i = 0; i < nstates; ++i)
+        for (uint32_t i = 0; i < nstates; ++i)
         {
             fout << "," << d[timestep * nstates + i];
         }
     }
+    printf("Finished d\n");
 
     // Close the file
     fout.close();
@@ -215,9 +215,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     const uint32_t dyn_step = states_sq + inp_states;
 
     // Read Q_R
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < cost_step; ++i)
+        for (uint32_t i = 0; i < cost_step; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -228,7 +228,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
         }
     }
     // read last Q
-    for (int i = 0; i < states_sq; ++i)
+    for (uint32_t i = 0; i < states_sq; ++i)
     {
         if (!getline(ss, token, ','))
         {
@@ -239,9 +239,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     }
 
     // Read q_r
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < nstates + ninputs; ++i)
+        for (uint32_t i = 0; i < nstates + ninputs; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -252,7 +252,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
         }
     }
     // read last q
-    for (int i = 0; i < nstates; ++i)
+    for (uint32_t i = 0; i < nstates; ++i)
     {
         if (!getline(ss, token, ','))
         {
@@ -263,9 +263,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     }
 
     // Read A_B
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < dyn_step; ++i)
+        for (uint32_t i = 0; i < dyn_step; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -277,9 +277,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     }
 
     // Read d
-    for (int timestep = 0; timestep < nhorizon; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon; ++timestep)
     {
-        for (int i = 0; i < nstates; ++i)
+        for (uint32_t i = 0; i < nstates; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -335,9 +335,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     const uint32_t dyn_step = states_sq + inp_states;
 
     // Read Q_R
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < cost_step; ++i)
+        for (uint32_t i = 0; i < cost_step; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -348,7 +348,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
         }
     }
     // read last Q
-    for (int i = 0; i < states_sq; ++i)
+    for (uint32_t i = 0; i < states_sq; ++i)
     {
         if (!getline(ss, token, ','))
         {
@@ -359,9 +359,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     }
 
     // Read q_r
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < nstates + ninputs; ++i)
+        for (uint32_t i = 0; i < nstates + ninputs; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -372,7 +372,7 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
         }
     }
     // read last q
-    for (int i = 0; i < nstates; ++i)
+    for (uint32_t i = 0; i < nstates; ++i)
     {
         if (!getline(ss, token, ','))
         {
@@ -383,9 +383,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     }
 
     // Read A_B
-    for (int timestep = 0; timestep < nhorizon - 1; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon - 1; ++timestep)
     {
-        for (int i = 0; i < dyn_step; ++i)
+        for (uint32_t i = 0; i < dyn_step; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -397,9 +397,9 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
     }
 
     // Read d
-    for (int timestep = 0; timestep < nhorizon; ++timestep)
+    for (uint32_t timestep = 0; timestep < nhorizon; ++timestep)
     {
-        for (int i = 0; i < nstates; ++i)
+        for (uint32_t i = 0; i < nstates; ++i)
         {
             if (!getline(ss, token, ','))
             {
@@ -410,8 +410,8 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
         }
     }
     // Read soln
-    int soln_size = nstates * nhorizon + ((nstates + ninputs) * nhorizon) - ninputs;
-    for (int timestep = 0; timestep < soln_size; ++timestep)
+    uint32_t soln_size = nstates * nhorizon + ((nstates + ninputs) * nhorizon) - ninputs;
+    for (uint32_t timestep = 0; timestep < soln_size; ++timestep)
     {
         if (!getline(ss, token, ','))
         {

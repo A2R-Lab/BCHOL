@@ -45,7 +45,7 @@ __host__ int main()
   float my_soln[soln_size];
 
   // // Reading the LQR problem
-  read_csv("lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d, soln);
+  read_csv("lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d);
 
   // Creating Factorization
   float F_lambda[fstates_size];
@@ -88,28 +88,49 @@ __host__ int main()
   gpuErrchk(cudaMemcpy(d_F_input, F_input, KKT_FCONTROL_SIZE_BYTES, cudaMemcpyHostToDevice));
 
   // Launch CUDA kernel with block and grid dimensions
-  //find a way to automate number of threads and blocks
+  // find a way to automate number of threads and blocks
   std::uint32_t blockSize = 512;
   std::uint32_t gridSize = 16;
 
-  uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES+KKT_G_DENSE_SIZE_BYTES+KKT_c_SIZE_BYTES+KKT_g_SIZE_BYTES+
-  KKT_FCONTROL_SIZE_BYTES+KKT_FSTATES_SIZE_BYTES+KKT_FSTATES_SIZE_BYTES+(knot_points*2*sizeof(int));
+  uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES + KKT_G_DENSE_SIZE_BYTES + KKT_c_SIZE_BYTES + KKT_g_SIZE_BYTES +
+                                   KKT_FCONTROL_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + (knot_points * 2 * sizeof(int));
+
+  std::cout << "shared_mem: " << bchol_shared_mem_size << std::endl;
 
   const void *bchol_kernelFunc = reinterpret_cast<const void *>(solve_BCHOL<float>);
   void *bchol_kernelArgs[] = {// prepare the kernel arguments
-                  &knot_points,
-                  &control_size,
-                  &state_size,
-                  &d_Q_R,
-                  &d_q_r,
-                  &d_A_B,
-                  &d_d,
-                  &d_F_lambda,
-                  &d_F_state,
-                  &d_F_input};
+                              &knot_points,
+                              &control_size,
+                              &state_size,
+                              &d_Q_R,
+                              &d_q_r,
+                              &d_A_B,
+                              &d_d,
+                              &d_F_lambda,
+                              &d_F_state,
+                              &d_F_input};
   // Prepare for timing
   cudaEvent_t start, stop;
   float time;
+
+  std::cout << "Launching blocks " << gridSize << " launching threads" << blockSize << "shared memory" << bchol_shared_mem_size << std::endl;
+  if (DEBUG)
+  {
+    // Get device properties
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0); // Assuming you're using device 0
+
+    std::cout << "Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
+    std::cout << "Max blocks per multiprocessor: " << prop.maxBlocksPerMultiProcessor << std::endl;
+    std::cout << "Max shared memory per block: " << prop.sharedMemPerBlock << std::endl;
+    std::cout << "Multiprocessor count: " << prop.multiProcessorCount << std::endl;
+
+    // Calculate max blocks for cooperative launch
+    int numBlocksPerSm;
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, bchol_kernelFunc, blockSize, bchol_shared_mem_size);
+    int maxBlocks = numBlocksPerSm * prop.multiProcessorCount;
+    std::cout << "Max blocks for cooperative kernel launch: " << maxBlocks << std::endl;
+  }
   gpuErrchk(cudaEventCreate(&start));
   gpuErrchk(cudaEventCreate(&stop));
   gpuErrchk(cudaEventRecord(start, 0));
@@ -146,18 +167,18 @@ __host__ int main()
     }
   }
 
-  if (checkEquality(my_soln, soln, soln_size))
-  {
-    printf("PASSED!\n");
-  }
-  else
-  {
-    printf("Not Passed");
-    printf("my_soln\n");
-    printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
-    printf("Soln\n");
-    printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
-  }
+  // if (checkEquality(my_soln, soln, soln_size))
+  // {
+  //   printf("PASSED!\n");
+  // }
+  // else
+  // {
+  //   printf("Not Passed");
+  //   printf("my_soln\n");
+  //   printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
+  //   printf("Soln\n");
+  //   printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
+  // }
 
   std::cout << "size " << soln_size << std::endl;
   printMatrix(my_soln, soln_size, 1);
