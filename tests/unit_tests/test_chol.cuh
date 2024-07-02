@@ -6,6 +6,7 @@
 #include "../../src/helpf.cuh" 
 #include "../../src/gpu_assert.cuh"
 
+
 // Define Kernel wrappers
 
 template <typename T>

@@ -3,6 +3,8 @@
 #include "../../src/helpf.cuh"
 #include "../../src/gpu_assert.cuh"
 
+//Should be ready to run
+
 // Kernel wrapper for copy2 function
 template <typename T>
 __global__ void copy2Kernel(uint32_t n1,
@@ -48,11 +50,11 @@ TEST(CopyFunctionTest, Coopy2Post)
     // Initialize input arrays on host
     for (int i = 0; i < N1; ++i)
     {
-        h_src1[i] = static_cast<float>(i + 1); // Example data
+        h_src1[i] = static_cast<float>(i + 1); 
     }
     for (int i = 0; i < N2; ++i)
     {
-        h_src2[i] = static_cast<float>(i + 1); // Example data
+        h_src2[i] = static_cast<float>(i + 1); 
     }
 
     // Allocate device memory
@@ -111,15 +113,15 @@ TEST(CopyFunctionTest, Copy3Test)
     // Initialize input arrays on host
     for (int i = 0; i < N1; ++i)
     {
-        h_src1[i] = static_cast<float>(i + 1); // Example data
+        h_src1[i] = static_cast<float>(i + 1); 
     }
     for (int i = 0; i < N2; ++i)
     {
-        h_src2[i] = static_cast<float>(i + 1); // Example data
+        h_src2[i] = static_cast<float>(i + 1); 
     }
     for (int i = 0; i < N3; ++i)
     {
-        h_src3[i] = static_cast<float>(i + 1); // Example data
+        h_src3[i] = static_cast<float>(i + 1);
     }
 
     // Allocate device memory

@@ -6,12 +6,12 @@ GTEST_DIR=/usr/local/gtest
 
 # CC compiler options:
 CC=g++
-CC_FLAGS=-O3 -std=c++11 -I$(GTEST_DIR)/include
+CC_FLAGS=-O3  -I$(GTEST_DIR)/include
 CC_LIBS=-L$(GTEST_DIR)/lib -lgtest -lgtest_main -lpthread
 
 # NVCC compiler options:
 NVCC=nvcc
-NVCC_FLAGS=-O3 -std=c++11 --compiler-bindir=/usr/bin/g++-11
+NVCC_FLAGS=-O3 --compiler-bindir=/usr/bin/g++-11
 NVCC_LIBS=
 
 # CUDA library directory:

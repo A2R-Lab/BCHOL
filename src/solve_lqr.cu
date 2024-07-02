@@ -12,7 +12,9 @@
 
 __host__ int main()
 {
+  
   printf("Run Test\n");
+   std::cout << __cplusplus << std::endl;
   // Declaration of LQR problem
   uint32_t knot_points = 8;
   uint32_t state_size = 6;

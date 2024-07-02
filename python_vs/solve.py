@@ -9,7 +9,7 @@ import numpy as np
 import json
 import csv
 import nested_dissect
-import solve_kernel
+#import solve_kernel
 
 
 #import solve
@@ -51,7 +51,7 @@ if file_type == 'json':
         # Access elements inside lqrdata (assuming it's a list of dictionaries)
         for lqr in lqrdata:
             index = lqr['index']
-            nstates = lqr['nstates']
+            nstates =lqr['nstates']
             ninputs = lqr['ninputs']
             Q_list.append(lqr['Q'])
             R_list.append(lqr['R'])
@@ -93,7 +93,11 @@ A = np.array(A_list)
 B = np.array(B_list)
 d = np.array(d_list)
 c = np.array(c_list)
-depth = math.log2(nhorizon)
+depth = int(math.log2(nhorizon))
+
+nhorizon=int(nhorizon)
+nstates= int(nstates)
+ninputs=int(ninputs)
 
 
 #A = A.reshape(-1,A.shape[-1]) #makes a long list of A matrices
@@ -111,7 +115,7 @@ F_input = np.zeros((nhorizon*depth,nstates,ninputs))
 print(scipy.linalg.cholesky(Q[0]))
 
 #imitating calling the kernel
-solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d,F_lambda,F_state,F_input)
+#solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d,F_lambda,F_state,F_input)
 
 
 

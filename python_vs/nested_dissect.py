@@ -3,7 +3,7 @@ import math
 import copy
 import scipy.linalg as linalg
 
-#WRITE TEST CASES
+#checked
 def initBTlevel(nhorizon):
     depth = int(np.log2(nhorizon))
     levels = -np.ones(nhorizon,dtype=int)
