@@ -7,6 +7,8 @@
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 
+
+//Can we make it host/device function?
 /* Function to write LQR problem into a csv file when given also soln vector
  *
  *

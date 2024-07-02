@@ -5,7 +5,7 @@
 #include <cooperative_groups.h>
 #include "../GLASS/glass.cuh"
 #include "helpf.cuh"
-__device__ const bool DEBUG = true;
+__device__ const bool DEBUG = false;
 __device__ const bool SAFE_MOOD = true;
 __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
@@ -239,7 +239,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
                                    nstates, ninputs, nhorizon);
       }
     }
-
+    
     // update SHUR - update x and z compliments
     for (uint32_t b_id = block_id; b_id < L; b_id += grid_dim)
     {
@@ -380,7 +380,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     }
     grid.sync();
   }
-  if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
+  if (DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     uint32_t soln_size = (nstates + ninputs) * nhorizon - ninputs;
 

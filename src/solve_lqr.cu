@@ -9,6 +9,7 @@
 #include <vector>
 #include "gpu_assert.cuh"
 
+
 __host__ int main()
 {
   printf("Run Test\n");
@@ -92,6 +93,7 @@ __host__ int main()
   std::uint32_t blockSize = 64;
   std::uint32_t gridSize = 8;
 
+  //put it into a function
   uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES + KKT_G_DENSE_SIZE_BYTES + KKT_c_SIZE_BYTES + KKT_g_SIZE_BYTES +
                                    KKT_FCONTROL_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + (knot_points * 3 * sizeof(int))+500;
 
