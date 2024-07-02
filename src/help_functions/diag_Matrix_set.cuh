@@ -3,7 +3,7 @@
 #include <cooperative_groups.h>
 namespace cgrps = cooperative_groups;
 
-/* @brief convert vector v_Q to diagonal matrix n*n m_Q
+/** @brief convert vector v_Q to diagonal matrix n*n m_Q
 *  @params:
 *  std::unit32_t  n lenght of vector v_Q
 *  T *v_Q vector of length n

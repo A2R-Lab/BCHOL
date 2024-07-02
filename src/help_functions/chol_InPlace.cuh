@@ -90,8 +90,19 @@ void chol_InPlace_r(uint32_t n,
     }
 }
 
-
-//Solves linear system of equations with Cholesky
+ /**
+ *  @brief Solves linear system of equations with cholesky matrix.
+ *
+ * Calls a lowerBackSub on Cholesky decomposed matrix @p s_A, and a vector @p s_b , storing the solution  in the
+ * @p s_b. .
+ *
+ * @param T* s_A:  Cholesky decomposition of a matrix A, row major
+ * @param  T* s_b:  a vector/matrix that completes the linear system 
+ * @param bool istransposed: a boolean to check if the matrix is transposed
+ * @param int n : number of cols/rows
+ * @param int m; number of cols/rows
+ *
+ */
 template <typename T>
 __device__
 void cholSolve_InPlace(T *s_A, T *s_b, bool istransposed, int n, int m, cgrps::thread_group g = cgrps::this_thread_block()) {

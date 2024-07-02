@@ -9,6 +9,7 @@ import numpy as np
 import json
 import csv
 import nested_dissect
+import solve_kernel
 
 
 #import solve
@@ -109,7 +110,8 @@ F_state = np.zeros((nhorizon*depth,nstates,nstates))
 F_input = np.zeros((nhorizon*depth,nstates,ninputs))
 print(scipy.linalg.cholesky(Q[0]))
 
-#solve_leaf
+#imitating calling the kernel
+solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d,F_lambda,F_state,F_input)
 
 
 
