@@ -80,7 +80,7 @@ __host__ __device__ void print_KKT(T *F_lambda, T *F_state, T *F_input, T *d,
         printMatrix(F_state + (ind * states_sq), nstates, nstates);
 
         printf("\nF_input #%d: \n", ind);
-        printMatrix(F_input + ind * inp_states, ninputs, nstates);
+        printMatrix(F_input + ind * inp_states, nstates, ninputs);
     }
     for (unsigned i = 0; i < nhorizon - 1; i++)
     {
@@ -349,5 +349,15 @@ __host__ __device__ void print_step(uint32_t ind, T *F_lambda, T *F_state, T *F_
     }
     else {
         printf("Index must be between 0 and %d", nhorizon-1);
+    }
+}
+
+template <typename T>
+__device__ void checkNaN(const double* array, size_t size, bool* result) {
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    if (idx < size) {
+        if (isnan(array[idx])) {
+            *result = true;
+        }
     }
 }

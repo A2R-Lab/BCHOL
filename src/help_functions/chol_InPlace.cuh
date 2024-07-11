@@ -22,6 +22,7 @@ void chol_InPlace(uint32_t n, T *s_A,cgrps::thread_group g = cgrps::this_thread_
 {
     uint32_t ind = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     uint32_t stride = blockDim.x * blockDim.y * blockDim.z;
+    
 
     for (uint32_t row = 0; row < n-1; row++) {
         // square root
