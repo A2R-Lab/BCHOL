@@ -46,29 +46,34 @@ def solve_kernel(knot_points,control_size, state_size,
 
    #imitate copying here to RAM later
   #update *shared memory*
-"""
+
    #Starting big loop
   for level in range (depth):
         #get the vars for the big loop
         print("started big loop")
+        indx_atlevel = nested_dissect.getValuesAtLevel(binary_tree,level)
 
-        count = nested_dissect.getValuesAtLevel(binary_tree) #get values at level - BUILD DICTIONARY OR A MAP!
-        L = math.pow(2.0,(depth-level-1))
+        count =len(indx_atlevel) 
+        L = int(np.power(2.0,(depth-level-1)))
         cur_depth = depth-level
         upper_levels = cur_depth-1
         num_factors = knot_points*upper_levels
         num_perblock = num_factors/L
+        print(count)
         #lots of copying again between ram and shared
-
-        #calc inner products Bbarand bbar (to solve y in Schur)
-        for b_ind in range (L):
+        #calc inner products Bbar and bbar (to solve y in Schur)
+        for b_ind in range (1):
            for t_ind in range(cur_depth):
               ind = ind = b_ind * cur_depth + t_ind
               leaf = ind / cur_depth
               upper_level = level + (ind % cur_depth)
-              lin_ind = pow(2.0, level) * (2 * leaf + 1) - 1
-              nested_dissect.factorInnerProduct<float>(A,B, F_state, F_input, F_lambda, lin_ind, upper_level, state_size, control_size, knot_points)
-
+              lin_ind = int(pow(2.0, level) * (2 * leaf + 1) - 1)
+              print("before the call\n",F_lambda[lin_ind+1])
+              nested_dissect.factorInnerProduct(A,B, F_state, F_input, F_lambda, lin_ind, upper_level, knot_points)
+              print("After factorinner: \n")
+              print(F_lambda[lin_ind+1])
+         
+"""
         #cholesky fact for Bbar/bbar
         for leaf in range (L):
            index = pow(2.0, level) * (2 * leaf + 1) - 1

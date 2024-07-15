@@ -15,12 +15,13 @@ def initBTlevel(nhorizon):
             levels[i]=level
     return levels
 
-def  getValuesAtLevel(binarytree):
+def  getValuesAtLevel(binarytree,level):
     index_dict = {}
     for index, value in enumerate(binarytree):
         if value not in index_dict:
             index_dict[value] = []
         index_dict[value].append(index)
+    return index_dict.get(level, []) 
     
     
 #Ready to test - 
@@ -83,6 +84,7 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
                        fact_level,nhorizon,sol=False):
     C1_state=s_A[index]
     C1_input = s_B[index]
+    
     if sol: 
         F1_state = s_F_state[index+nhorizon*fact_level]
         F1_input = s_F_input[index+nhorizon*fact_level]
@@ -94,9 +96,11 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
         F2_state = s_F_state[(index+1)]
         S = s_F_lambda[(index+1)]
 
-    dgemv(1,C1_state,F1_state,-1,S)
-    dgemv(1,C1_input,F1_input,1,S)
+    S[:]=dgemv(1,C1_state,F1_state,-1,S)
+    S[:]=dgemv(1,C1_input,F1_input,1,S)
     S +=-1*F2_state
+    print("S changed: \n")
+    print(S)
 
 """
 #Write tests

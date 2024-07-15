@@ -251,6 +251,13 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
       }
     }
+    if (DEBUG && block_id == BLOCK && thread_id == THREAD)
+    {
+      printf("After  factorinner loop, level %d \n", level);
+      print_KKT(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r, nhorizon, depth,
+                nstates, ninputs);
+    }
+    block.sync();
 
     // Cholesky factorization of Bbar/bbar
     for (uint32_t leaf = block_id; leaf < L; leaf += grid_dim)
@@ -431,13 +438,11 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   {
 
     printf("print HI soln vector\n");
-    print_soln(d_d,d_q_r,nhorizon,nstates,ninputs);
+    print_soln(d_d, d_q_r, nhorizon, nstates, ninputs);
   }
 }
 
-
-
-//VERSION FOR MPC INTEGRATION
+// VERSION FOR MPC INTEGRATION
 /** @brief The rsLQR solver, the main function of the solver, here takes d_q_r and also d_c
  * doesn't solve in palce for vector solution
  */
