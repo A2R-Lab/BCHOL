@@ -10,11 +10,23 @@ def solve_kernel(knot_points,control_size, state_size,
   states_sq = state_size * state_size
   inputs_sq = control_size*control_size
   inp_states = control_size*state_size
-  #depth = log2f(knot_points)
+  depth = int(np.log2(knot_points))
   binary_tree = nested_dissect.initBTlevel(knot_points)
 
 
+  #negate q_r and d vectors
+  q=-q
+  r = -r
+  d = -d
+
+  #Set F_lambda,F_state, and F_input
+  F_lambda = np.zeros((knot_points*depth,state_size,state_size))
+  F_state = np.zeros((knot_points*depth,state_size,state_size))
+  F_input = np.zeros((knot_points*depth,state_size,control_size))
+
+
   #maybe immitate copying over here like in kernel?
+
 
   #SOLVE_LEAF
   for ind in range (knot_points):

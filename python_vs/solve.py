@@ -8,6 +8,8 @@ import math
 import numpy as np
 import json
 import csv
+
+#function specific imports
 import nested_dissect
 #import solve_kernel
 
@@ -90,7 +92,14 @@ R = np.array([np.diag(row) for row in R_list])
 q = np.array(q_list)
 r = np.array(r_list)
 A = np.array(A_list)
-B = np.array(B_list)
+B_v = np.array(B_list)
+B = np.zeros((nhorizon,nstates,ninputs)) 
+#reshape B
+for i in range(B.shape[0]):
+    first_part = B_v[i,:,:ninputs]
+    second_partt = B_v[i,:,ninputs:]
+    B[i] = np.vstack((first_part,second_partt))
+
 d = np.array(d_list)
 c = np.array(c_list)
 depth = int(math.log2(nhorizon))
@@ -103,16 +112,6 @@ ninputs=int(ninputs)
 #A = A.reshape(-1,A.shape[-1]) #makes a long list of A matrices
 #by this point we are done with data preparation, all the arrays are 3d 
 #first dimension is the index
-
-#build the binary tree
-binary_tree = nested_dissect.initBTlevel(nhorizon)
-print("tree",binary_tree)
-
-#create F_lambda, F_state, F_input
-F_lambda = np.zeros((nhorizon*depth,nstates,nstates))
-F_state = np.zeros((nhorizon*depth,nstates,nstates))
-F_input = np.zeros((nhorizon*depth,nstates,ninputs))
-print(scipy.linalg.cholesky(Q[0]))
 
 #imitating calling the kernel
 #solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d,F_lambda,F_state,F_input)
