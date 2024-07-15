@@ -48,22 +48,9 @@ __host__ int main()
   float my_soln[soln_size];
 
   // // Reading the LQR problem
-  read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d);
+  read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d,soln);
 
-  // Creating Factorization
-  float F_lambda[fstates_size];
-  float F_state[fstates_size];
-  for (uint32_t n = 0; n < fstates_size; n++)
-  {
-    F_lambda[n] = 0;
-    F_state[n] = 0;
-  }
 
-  float F_input[fcontrol_size];
-  for (uint32_t n = 0; n < fcontrol_size; n++)
-  {
-    F_input[n] = 0;
-  }
 
   // Allocate memory on the GPU for x0,Q_R,q_r, A_B, d,
 
@@ -86,9 +73,9 @@ __host__ int main()
   gpuErrchk(cudaMemcpy(d_A_B, A_B, KKT_C_DENSE_SIZE_BYTES, cudaMemcpyHostToDevice));
   gpuErrchk(cudaMemcpy(d_d, d, KKT_c_SIZE_BYTES, cudaMemcpyHostToDevice));
 
-  gpuErrchk(cudaMemcpy(d_F_lambda, F_lambda, KKT_FSTATES_SIZE_BYTES, cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMemcpy(d_F_state, F_state, KKT_FSTATES_SIZE_BYTES, cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMemcpy(d_F_input, F_input, KKT_FCONTROL_SIZE_BYTES, cudaMemcpyHostToDevice));
+  // gpuErrchk(cudaMemcpy(d_F_lambda, F_lambda, KKT_FSTATES_SIZE_BYTES, cudaMemcpyHostToDevice));
+  // gpuErrchk(cudaMemcpy(d_F_state, F_state, KKT_FSTATES_SIZE_BYTES, cudaMemcpyHostToDevice));
+  // gpuErrchk(cudaMemcpy(d_F_input, F_input, KKT_FCONTROL_SIZE_BYTES, cudaMemcpyHostToDevice));
 
   // Launch CUDA kernel with block and grid dimensions
   // find a way to automate number of threads and blocks
@@ -150,9 +137,6 @@ __host__ int main()
   gpuErrchk(cudaMemcpy(d, d_d, KKT_c_SIZE_BYTES, cudaMemcpyDeviceToHost));
   gpuErrchk(cudaMemcpy(Q_R, d_Q_R, KKT_G_DENSE_SIZE_BYTES, cudaMemcpyDeviceToHost));
   gpuErrchk(cudaMemcpy(A_B, d_A_B, KKT_C_DENSE_SIZE_BYTES, cudaMemcpyDeviceToHost));
-  gpuErrchk(cudaMemcpy(F_lambda, d_F_lambda, KKT_FSTATES_SIZE_BYTES, cudaMemcpyDeviceToHost));
-  gpuErrchk(cudaMemcpy(F_state, d_F_state, KKT_FSTATES_SIZE_BYTES, cudaMemcpyDeviceToHost));
-  gpuErrchk(cudaMemcpy(F_input, d_F_input, KKT_FCONTROL_SIZE_BYTES, cudaMemcpyDeviceToHost));
 
   gpuErrchk(cudaEventRecord(stop, 0));
   gpuErrchk(cudaEventSynchronize(stop));
@@ -171,18 +155,18 @@ __host__ int main()
     }
   }
 
-  // if (checkEquality(my_soln, soln, soln_size))
-  // {
-  //   printf("PASSED!\n");
-  // }
-  // else
-  // {
-  //   printf("Not Passed");
-  //   printf("my_soln\n");
-  //   printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
-  //   printf("Soln\n");
-  //   printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
-  // }
+ if (checkEquality(my_soln, soln, soln_size))
+  {
+    printf("PASSED!\n");
+  }
+  else
+  {
+    printf("Not Passed");
+    printf("my_soln\n");
+    printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
+    printf("Soln\n");
+    printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
+  }
 
   std::cout << "size " << soln_size << std::endl;
   printMatrix(my_soln, soln_size, 1);

@@ -6,6 +6,8 @@
 #include "./help_functions/lowerBackSub.cuh"
 #include "./help_functions/scaled_sum.cuh"
 #include "./help_functions/set_const.cuh"
+#include "./help_functions/add_epsln.cuh"
+
 
 
 /*COPY/CSV/DEBUG*/
