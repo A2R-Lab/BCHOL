@@ -11,7 +11,7 @@ import csv
 
 #function specific imports
 import nested_dissect
-#import solve_kernel
+import solve_kernel
 
 
 #import solve
@@ -66,10 +66,11 @@ if file_type == 'json':
                 d_list.append(lqr['d'])
 
     # Accessing solution data
+    """
     print("\nSolution data:")
     for sol in soln:
         print(sol)
-            
+    """
 elif file_type == 'csv':
     file_name = input("Enter the CSV file name: ")
     with open(file_name,'r') as file:
@@ -83,8 +84,7 @@ else:
 print("nhorizon",nhorizon)
 print("nstates",nstates)
 print("ninputs",ninputs)
-print("A",A_list)
-print("d",d_list)
+
 
 #transform the lists to numpy arrays
 Q =np.array([np.diag(row) for row in Q_list]) 
@@ -92,14 +92,18 @@ R = np.array([np.diag(row) for row in R_list])
 q = np.array(q_list)
 r = np.array(r_list)
 A = np.array(A_list)
-B_v = np.array(B_list)
+B = np.array(B_list)
+
+"""
+check if you need to transpose
 B = np.zeros((nhorizon,nstates,ninputs)) 
-#reshape B
+
+#reshape B 
 for i in range(B.shape[0]):
     first_part = B_v[i,:,:ninputs]
     second_partt = B_v[i,:,ninputs:]
     B[i] = np.vstack((first_part,second_partt))
-
+"""
 d = np.array(d_list)
 c = np.array(c_list)
 depth = int(math.log2(nhorizon))
@@ -114,7 +118,7 @@ ninputs=int(ninputs)
 #first dimension is the index
 
 #imitating calling the kernel
-#solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d,F_lambda,F_state,F_input)
+solve_kernel.solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d)
 
 
 

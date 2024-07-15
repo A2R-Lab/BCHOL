@@ -2,6 +2,7 @@ import numpy as np
 import math
 import copy
 import scipy.linalg as linalg
+from scipy.linalg.blas import dgemv,dgemm
 
 #checked
 def initBTlevel(nhorizon):
@@ -14,62 +15,68 @@ def initBTlevel(nhorizon):
             levels[i]=level
     return levels
 
-
-#WRITE TESTS!
-def gemv(alpha,A,x,beta,y):
-    y +=beta *y
-    y+=alpha*np.dot(A,x)
-
-#Write tests
-def dot_product(alpha, A, B, beta,C):
-    return alpha * np.dot(A.T, B) + beta*C
+def  getValuesAtLevel(binarytree):
+    index_dict = {}
+    for index, value in enumerate(binarytree):
+        if value not in index_dict:
+            index_dict[value] = []
+        index_dict[value].append(index)
     
-
-def solveLeaf(levels,index, nstates,ninputs,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
+    
+#Ready to test - 
+def solveLeaf(levels,index, nstates,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
               s_F_lambda,s_F_state,s_F_input):
     level = levels[index]
     lin_index = index+nhorizon*level
     #setting up array for specific indices
-    Q  = s_Q[index]
-    R = s_R[index]
-    q=s_q[index]
-    r = s_r[index]
     A=s_A[index]
     B=s_B[index]
-    d=s_d[index]
-    F_lambda = s_F_lambda[index+nhorizon*level]
-    F_state= s_F_state[index+nhorizon*level]
-    F_input = s_F_input[index+nhorizon*level]
+    Q  = s_Q[index]
+    r = s_r[index]
+    q = s_q[index]
+    d = s_d[index]
+
 
     if(index ==0):
-        F_lambda =copy.deepcopy(A[0])*-1
-        F_input= copy.deepcopy(B[0])
-        linalg.cho_factor(R)
-        linalg.cho_solve(R,F_input,overwrite_b=True)
-        linalg.cho_solve(R,r,overwrite_b=True)
+        R = s_R[index]
+        s_F_lambda[lin_index] =np.copy(A)*-1
+        s_F_input[lin_index]=np.copy(B)*1
+        F_input=s_F_input[lin_index]
+        R,lower_R = linalg.cho_factor(R,lower = True)
+        F_input[:]=linalg.cho_solve((R,lower_R),F_input,overwrite_b=True)
+        r[:]=linalg.cho_solve((R,lower_R),r,overwrite_b=True)
         #solve the block system of eqn overwriting d, q,r
         zy_temp = np.zeros(nstates)
-        zy_temp = copy.deepcopy(d)
-        d = copy.deepcopy(q)
-        gemv(-1,Q,zy_temp,-1,d)
-        q=copy.deepcopy(zy_temp)*-1
+        zy_temp=np.copy(d)*1
+        d = np.copy(q)*1
+        print("after copy", d)
+        s_d[index]=dgemv(-1,Q,zy_temp,beta=-1,y=d,overwrite_y = True)
+        print(zy_temp)
+        s_q[index]=np.copy(zy_temp)*-1
         zy_temp[:] = 0
-        linalg.cho_factor(Q)
+        Q,lower_Q=linalg.cho_factor(Q,lower=True)
+    
     else:
-        linalg.cho_factor(Q)
+        Q,lower_Q=linalg.cho_factor(Q,lower=True)
         #not the last timestep
         if(index<nhorizon-1):
-            linalg.cho_factor(R)
-            linalg.cho_solve(R,r, overwrite_b = True)
-            F_state = copy.deepcopy(A)
-            linalg.cho_solve(Q,F_state)
-            F_input = copy.deepcopy(B)
-            linalg.cho_solve(R,F_input,overwrite_b = True)
-        linalg.cho_solve(Q,q)
+            R = s_R[index]
+            R,lower_R = linalg.cho_factor(R,lower =True)
+            r[:]=linalg.cho_solve((R,lower_R),r, overwrite_b = True)
+            s_F_state[lin_index] = np.copy(A)*1 
+            F_state= s_F_state[lin_index]
+            F_state[:]=linalg.cho_solve((Q,lower_Q),F_state,overwrite_b=True)
+            s_F_input[lin_index] = np.copy(B)*1 
+            F_input = s_F_input[lin_index]
+            #CHECK IF YOU NEED TO TRANSPOSE!
+            F_input[:]=linalg.cho_solve((R,lower_R),F_input,overwrite_b = True)
+        
+        q[:]=linalg.cho_solve((Q,lower_Q),q,overwrite_b=True)
         prev_level = levels[index-1]
         F_state_prev = s_F_state[prev_level*nhorizon+index]
         np.fill_diagonal(F_state_prev,-1)
-        linalg.cho_solve(Q,F_state_prev,overwrite_b=True)
+        F_state_prev[:]=linalg.cho_solve((Q,lower_Q),F_state_prev,overwrite_b=True)
+        
 
 #write tests
 def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
@@ -86,10 +93,12 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
         F1_input = s_F_input[index]
         F2_state = s_F_state[(index+1)]
         S = s_F_lambda[(index+1)]
-    dot_product(1,C1_state,F1_state,-1,S)
-    dot_product(1,C1_input,F1_input,1,S)
+
+    dgemv(1,C1_state,F1_state,-1,S)
+    dgemv(1,C1_input,F1_input,1,S)
     S +=-1*F2_state
 
+"""
 #Write tests
 def getIndexFromLevel(nhorizon,depth,level,i,levels):
     num_nodes=np.power(2,depth-level-1)
@@ -134,7 +143,7 @@ def updateShur (s_F_state,s_F_input,s_F_lambda,index,i,level,
     gemv(-1,F_state,f,1,g_state)
     gemv(-1,F_input,f,1,g_input)
 
-
+"""
     
 
 

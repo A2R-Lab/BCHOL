@@ -5,14 +5,14 @@ import copy
 import scipy.linalg as linalg
 
 def solve_kernel(knot_points,control_size, state_size,
-                  Q,R,q,r,A,B,d,F_lambda,F_state,F_input):
+                  Q,R,q,r,A,B,d):
   #KKT constants
   states_sq = state_size * state_size
   inputs_sq = control_size*control_size
   inp_states = control_size*state_size
   depth = int(np.log2(knot_points))
   binary_tree = nested_dissect.initBTlevel(knot_points)
-
+  print("Inside the kernel\n")
 
   #negate q_r and d vectors
   q=-q
@@ -22,23 +22,37 @@ def solve_kernel(knot_points,control_size, state_size,
   #Set F_lambda,F_state, and F_input
   F_lambda = np.zeros((knot_points*depth,state_size,state_size))
   F_state = np.zeros((knot_points*depth,state_size,state_size))
-  F_input = np.zeros((knot_points*depth,state_size,control_size))
+  F_input = np.zeros((knot_points*depth,control_size,state_size))
 
-
-  #maybe immitate copying over here like in kernel?
-
-
+  #make sure Q is not zero(add_epsln)
+  #Q +=1e-5
   #SOLVE_LEAF
   for ind in range (knot_points):
-    nested_dissect.solveLeaf(binary_tree,ind, state_size,control_size,Q,R,q,r,A,B,d,F_lambda,F_state,F_input)
-    #imitate copying here to RAM later
+      nested_dissect.solveLeaf(binary_tree,ind, state_size,knot_points,Q,R,q,r,A,B,d,F_lambda,F_state, F_input)
+  for i in range(8):
+     print(i)
+     print("d ",d[i])
+     print("q ",q[i])
+     print("r ",r[i])
 
-    #update *shared memory*
+  for i in range(24):
+      print("F_lambda ",i)
+      print(F_lambda[i])
+      print("F_state ",i)
+      print(F_state[i])
+      print("F_input",i)
+      print(F_input[i])
+  print("done with solveleaf\n")
 
-    #Starting big loop
-    for level in range (depth):
+   #imitate copying here to RAM later
+  #update *shared memory*
+"""
+   #Starting big loop
+  for level in range (depth):
         #get the vars for the big loop
-        count = #get values at level - BUILD DICTIONARY OR A MAP!
+        print("started big loop")
+
+        count = nested_dissect.getValuesAtLevel(binary_tree) #get values at level - BUILD DICTIONARY OR A MAP!
         L = math.pow(2.0,(depth-level-1))
         cur_depth = depth-level
         upper_levels = cur_depth-1
@@ -66,5 +80,4 @@ def solve_kernel(knot_points,control_size, state_size,
         
         #solve with Chol factor for y
 
-      
-
+   """
