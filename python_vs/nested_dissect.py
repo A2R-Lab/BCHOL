@@ -4,6 +4,13 @@ import copy
 import scipy.linalg as linalg
 from scipy.linalg.blas import dgemv,dgemm
 
+def is_choleskysafe(matrix):
+    try:
+        np.linalg.cholesky(matrix)
+        return True
+    except np.linalg.LinAlgError:
+        return False
+    
 #checked
 def initBTlevel(nhorizon):
     depth = int(np.log2(nhorizon))
@@ -50,9 +57,7 @@ def solveLeaf(levels,index, nstates,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
         zy_temp = np.zeros(nstates)
         zy_temp=np.copy(d)*1
         d = np.copy(q)*1
-        print("after copy", d)
         s_d[index]=dgemv(-1,Q,zy_temp,beta=-1,y=d,overwrite_y = True)
-        print(zy_temp)
         s_q[index]=np.copy(zy_temp)*-1
         zy_temp[:] = 0
         Q,lower_Q=linalg.cho_factor(Q,lower=True)
@@ -86,22 +91,31 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
     C1_input = s_B[index]
     
     if sol: 
-        F1_state = s_F_state[index+nhorizon*fact_level]
-        F1_input = s_F_input[index+nhorizon*fact_level]
-        F2_state = s_F_state[(index+1)+nhorizon*fact_level]
-        S = s_F_lambda[(index+1)+nhorizon*fact_level]
-    else:
         F1_state = s_F_state[index]
         F1_input = s_F_input[index]
         F2_state = s_F_state[(index+1)]
         S = s_F_lambda[(index+1)]
+    else:
+        F1_state = s_F_state[index+nhorizon*fact_level]
+        F1_input = s_F_input[index+nhorizon*fact_level]
+        F2_state = s_F_state[(index+1)+nhorizon*fact_level]
+        S = s_F_lambda[(index+1)+nhorizon*fact_level]
+    # print("C1_state:\n", C1_state)
+    # print("C1_input:\n", C1_input)
+    # print("F1_state:", F1_state)
+    # print("F1_input:", F1_input)
+    # print("S before operations:", S)
 
-    S[:]=dgemv(1,C1_state,F1_state,-1,S)
-    S[:]=dgemv(1,C1_input,F1_input,1,S)
+    # Perform dgemm operations
+    S[:] = dgemm(alpha=1, a=C1_state, b=F1_state, beta=-1, c=S, trans_b=1)
+    # print("S after first dgemm:\n", S)
+
+    S[:] = dgemm(alpha=1, a=C1_input.T, b=F1_input, beta=1, c=S)
+    # print("S after second dgemm:\n", S)
     S +=-1*F2_state
-    print("S changed: \n")
-    print(S)
-
+    # print("S final: ",index, " \n")
+    # print(S)
+    
 """
 #Write tests
 def getIndexFromLevel(nhorizon,depth,level,i,levels):

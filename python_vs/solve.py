@@ -23,11 +23,11 @@ def runSolve():
     """
 
 # Prompt the user to select the file type
-file_type = input("Enter 'json' or 'csv' to choose the file type: ")    
+file_type = "json"    
 
 # Read data based on user's choice
 if file_type == 'json':
-    file_name = input("Enter the JSON file name: ")
+    file_name = "lqr_prob.json"
     with open(file_name,'r') as file:
         data = json.load(file)
  
