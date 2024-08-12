@@ -1,0 +1,72 @@
+nhorizon 8
+x0 [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
+nhorizon 8
+nstates 6
+ninputs 3
+Inside the kernel
+
+started big loop
+L 4
+norm i 0, index 0, calc lambda True
+
+norm i 1, index 0, calc lambda True
+
+norm i 2, index 0, calc lambda False
+
+norm i 3, index 0, calc lambda False
+
+norm i 4, index 2, calc lambda False
+
+norm i 5, index 2, calc lambda False
+
+norm i 6, index 2, calc lambda False
+
+norm i 7, index 2, calc lambda False
+
+norm i 8, index 4, calc lambda False
+
+norm i 9, index 4, calc lambda False
+
+norm i 10, index 4, calc lambda False
+
+norm i 11, index 4, calc lambda False
+
+norm i 12, index 6, calc lambda False
+
+norm i 13, index 6, calc lambda False
+
+norm i 14, index 6, calc lambda False
+
+norm i 15, index 6, calc lambda False
+
+started big loop
+L 2
+norm i 0, index 1, calc lambda True
+
+norm i 1, index 1, calc lambda True
+
+norm i 2, index 1, calc lambda False
+
+norm i 3, index 1, calc lambda True
+
+norm i 4, index 5, calc lambda False
+
+norm i 5, index 5, calc lambda True
+
+norm i 6, index 5, calc lambda False
+
+norm i 7, index 5, calc lambda True
+
+started big loop
+L 1
+started soln L  4
+level  0
+Cant sovle Chol in soln
+Cant sovle Chol in soln
+Cant sovle Chol in soln
+Cant sovle Chol in soln
+8 3 0 7
+
+ [ 0  1  0  2  0  1  0 -1]
+soln i 7, index 6, calc lambda (6, 7, 8, array([ 0,  1,  0,  2,  0,  1,  0, -1]))
+

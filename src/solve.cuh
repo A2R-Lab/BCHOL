@@ -66,7 +66,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   set_const(fstates_size, 0.0f, d_F_lambda);
   set_const(fstates_size, 0.0f, d_F_state);
   set_const(fcontrol_size, 0.0f, d_F_input);
-  block.sync();
+  // CHANGED!
 
   // move ram to shared
   copy2<float>(Q_R_size, 1, d_Q_R, s_Q_R, dyn_step * (nhorizon - 1), 1, d_A_B, s_A_B);
@@ -75,23 +75,31 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
                d_F_state, s_F_state, inp_states * nhorizon * depth, 1, d_F_input, s_F_input);
   initializeBSTLevels(nhorizon, s_levels); // helps to build the tree
   block.sync();
+
+
+
   // Make sure Q_R are non-zeros across diagonal
-  for (int i = block_id; i < nhorizon; i++)
-  {
-    add_epsln(nstates, s_Q_R + i * cost_step);
-  }
+  // for (int i = block_id; i < nhorizon; i++)
+  // {
+  //   add_epsln(nstates, s_Q_R + i * cost_step);
+  // }
+  // block.sync();
+
   block.sync();
 
   if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     printf("Check init\n"); // fixed!
+    printf("B 0 %f", s_A_B[states_sq]);
+    printf("\n B_3 %f",s_A_B[states_sq+3]);
     for (int i = 0; i < nhorizon - 1; i++)
     {
       printf("A %d\n", i);
       printMatrix(s_A_B + (i * (dyn_step)), nstates, nstates);
       printf("B %d\n", i);
-      printMatrix(s_A_B + states_sq + (i * dyn_step), nstates, ninputs);
+      printMatrix(s_A_B + states_sq + (i * dyn_step), ninputs, nstates);
     }
+
     for (int i = 0; i < nhorizon; i++)
     {
       printf("Q %d\n", i);
@@ -102,6 +110,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
         printMatrix(s_Q_R + states_sq + (i * cost_step), ninputs, ninputs);
       }
     }
+
     print_soln(s_d, s_q_r, nhorizon, nstates, ninputs);
   }
   block.sync();
@@ -234,6 +243,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     }
 
     // Calc Inner Products Bbar and bbar (to solve for y)
+    // here we change only F_lambda of ind+1 of fact_level
     for (uint32_t b_ind = block_id; b_ind < L; b_ind += grid_dim)
     {
       if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
@@ -251,13 +261,6 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
         factorInnerProduct<float>(s_A_B, s_F_state, s_F_input, s_F_lambda, lin_ind, upper_level, nstates, ninputs, nhorizon);
       }
     }
-    if (DEBUG && block_id == BLOCK && thread_id == THREAD)
-    {
-      printf("After  factorinner loop, level %d \n", level);
-      print_KKT(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r, nhorizon, depth,
-                nstates, ninputs);
-    }
-    block.sync();
 
     // Cholesky factorization of Bbar/bbar
     for (uint32_t leaf = block_id; leaf < L; leaf += grid_dim)
@@ -266,13 +269,19 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       {
         printf("started cholinplace loop \n");
       }
-      // HERE"S THE PROBLEM!
       uint32_t index = pow(2.0, level) * (2 * leaf + 1) - 1;
       uint32_t lin_ind = index + nhorizon * level;
       float *S = s_F_lambda + (states_sq * (lin_ind + 1));
       chol_InPlace<float>(nstates, S, cgrps::this_thread_block());
       block.sync();
     }
+    if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
+    {
+      printf("After  chol_fact loop, level %d \n", level);
+      print_KKT(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r, nhorizon, depth,
+                nstates, ninputs);
+    }
+    block.sync();
 
     // Solve with Cholesky factor for y
     for (uint32_t b_id = block_id; b_id < L; b_id += grid_dim)
@@ -293,6 +302,13 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
                                    nstates, ninputs, nhorizon);
       }
     }
+    if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
+    {
+      printf("After  chol_solve loop, level %d \n", level);
+      print_KKT(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r, nhorizon, depth,
+                nstates, ninputs);
+    }
+    block.sync();
 
     // update SHUR - update x and z compliments
     for (uint32_t b_id = block_id; b_id < L; b_id += grid_dim)
@@ -303,11 +319,14 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
       }
       for (uint32_t t_id = 0; t_id < num_perblock; t_id += 1)
       {
-        int i = (b_id * 4) + t_id;
+        int i = (b_id * 4) + t_id; //why is here 4?
         int k = i / upper_levels;
         uint32_t upper_level = level + 1 + (i % upper_levels);
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels);
+        if(!DEBUG&&block_id==BLOCK&&thread_id==THREAD){
+          printf("level %d,i %d, calc_lambda %d\n",level,i,calc_lambda );
+        }
         int g = k + nhorizon * upper_level;
         updateShur<float>(s_F_state, s_F_input, s_F_lambda, index, k, level, upper_level,
                           calc_lambda, nstates, ninputs, nhorizon);
@@ -321,6 +340,14 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
                          d_F_input + (inp_states * g));
       }
     }
+
+    if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
+    {
+      printf("After  shur loop, level %d \n", level);
+      print_KKT(s_F_lambda, s_F_state, s_F_input, s_d, s_q_r, nhorizon, depth,
+                nstates, ninputs);
+    }
+    block.sync();
 
     // after finishing with the level need to rewrite from shared to RAM
     for (uint32_t b_id = block_id; b_id < count; b_id += grid_dim)
@@ -351,7 +378,10 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     printf("finished fact big loop\n");
+    print_KKT(s_F_lambda,s_F_state, s_F_input, s_d,s_q_r,nhorizon,depth,nstates,ninputs);
   }
+  block.sync();
+
 
   // SOLN VECTOR LOOP
   for (uint32_t level = 0; level < depth; ++level)
@@ -402,11 +432,14 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     //    y = y - F zbar
     for (uint32_t b_id = block_id; b_id < L; b_id += grid_dim)
     {
-      for (uint32_t i = 0; i < num_copies; i++)
+      for (uint32_t t_id = 0; t_id < num_copies; t_id++)
       {
-        uint32_t k = b_id * num_copies + i;
+        uint32_t k = b_id * num_copies + t_id;
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels); // nhorizon, s_levels
+        if(DEBUG&&block_id==BLOCK&&thread_id==THREAD){
+          printf("L %d soln level %d,k %d,i %d, calc_lambda %d\n",L,level,k,index,calc_lambda );
+        }
         updateShur_sol<float>(s_F_state, s_F_input, s_F_lambda, s_q_r, s_d, index, k, level,
                               calc_lambda, nstates, ninputs, nhorizon);
       }
@@ -434,7 +467,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
     }
     grid.sync();
   }
-  if (DEBUG && block_id == BLOCK && thread_id == THREAD)
+  if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
 
     printf("print HI soln vector\n");

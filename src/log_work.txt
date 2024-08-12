@@ -1,0 +1,4 @@
+NEW DOC to keep the work progress
+
+Aug 11th:
+- Check Python Version , when I tried to assign uint32 to numpy it raised an error of positive definite

@@ -31,7 +31,7 @@ def  getValuesAtLevel(binarytree,level):
     return index_dict.get(level, []) 
     
     
-#Ready to test - 
+#Should be good correct
 def solveLeaf(levels,index, nstates,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
               s_F_lambda,s_F_state,s_F_input):
     level = levels[index]
@@ -84,7 +84,7 @@ def solveLeaf(levels,index, nstates,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
         F_state_prev[:]=linalg.cho_solve((Q,lower_Q),F_state_prev,overwrite_b=True)
         
 
-#write tests
+#w
 def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
                        fact_level,nhorizon,sol=False):
     C1_state=s_A[index]
@@ -94,24 +94,25 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
         F1_input = s_F_input[index]
         F2_state = s_F_state[(index+1)]
         S = s_F_lambda[(index+1)]
+        # Perform dgemv operations
+        S[:] = dgemv(alpha=1, a=C1_state, x=F1_state, beta=-1, y=S, trans=1)
+
+        S[:] = dgemv(alpha=1, a=C1_input.T, x=F1_input, beta=1, y=S)
+        S +=-1*F2_state
+
     else:
         lin_ind = index+(nhorizon*fact_level)
         F1_state = s_F_state[lin_ind]
         F1_input = s_F_input[lin_ind]
         F2_state = s_F_state[(index+1)+nhorizon*fact_level]
-#        indx_S=(index+1)+nhorizon*fact_level
         S = s_F_lambda[(index+1)+nhorizon*fact_level]
 
-    # Perform dgemm operations
-    S[:] = dgemm(alpha=1, a=C1_state, b=F1_state, beta=-1, c=S, trans_b=1)
-    # print("S after first dgemm:\n", S)
+        # Perform dgemm operations
+        S[:] = dgemm(alpha=1, a=C1_state, b=F1_state, beta=-1, c=S, trans_b=1)
 
-    S[:] = dgemm(alpha=1, a=C1_input.T, b=F1_input, beta=1, c=S)
-    # print("S after second dgemm:\n", S)
-    S +=-1*F2_state
-    # print("S final: ",indx_S, " \n")
-    # print(S)
-    
+        S[:] = dgemm(alpha=1, a=C1_input.T, b=F1_input, beta=1, c=S)
+        S +=-1*F2_state
+
 #Write tests
 def getIndexFromLevel(nhorizon,depth,level,i,levels):
     num_nodes=np.power(2,depth-level-1)
@@ -133,13 +134,23 @@ def shouldCalcLambda(index, i,levels):
 
 #Write tests
 def updateShur (s_F_state,s_F_input,s_F_lambda,index,i,level,
-                upper_level,calc_lambda,nhorizon,sol = False):
-    
+                upper_level,calc_lambda,nhorizon,sol = False,d=None, q = None, r=None):
+    F_state = s_F_state[i+nhorizon*level]
+    F_input = s_F_input[i+nhorizon*level]
+    F_lambda = s_F_lambda[i+nhorizon*level]
+
+
     if sol:
-        f = s_F_lambda[i+1]
-        g_state = s_F_state[i]
-        g_input = s_F_input[i]
-        g_lambda = s_F_lambda[i]
+        if(i+1==8):
+            print(index, i, level)
+        f = d[index+1]
+        g_state = q[i]
+        g_input = r[i]
+        g_lambda = d[i]
+        if calc_lambda:
+            g_lambda[:]=dgemv(alpha = -1,a=F_lambda, x=f,beta = 1,y=g_lambda)
+        g_state[:]=dgemv(alpha=-1,a=F_state,x=f,beta=1,y=g_state)
+        g_input[:]=dgemv(alpha=-1,a=F_input,x=f,beta=1,y=g_input)
 
     else:
         lin_index = index+1+(nhorizon*upper_level)
@@ -149,13 +160,8 @@ def updateShur (s_F_state,s_F_input,s_F_lambda,index,i,level,
         g_input = s_F_input[lin_index]
         g_lambda = s_F_lambda[lin_index]
 
-
-    F_state = s_F_state[i+nhorizon*level]
-    F_input = s_F_input[i+nhorizon*level]
-    F_lambda = s_F_lambda[i+nhorizon*level]
-
-    if calc_lambda:
-        g_lambda[:]=dgemm(alpha = -1,a=F_lambda, b=f,beta = 1,c=g_lambda)
-    g_state[:]=dgemm(alpha=-1,a=F_state,b=f,beta=1,c=g_state)
-    g_input[:]=dgemm(alpha=-1,a=F_input,b=f,beta=1,c=g_input)
+        if calc_lambda:
+            g_lambda[:]=dgemm(alpha = -1,a=F_lambda, b=f,beta = 1,c=g_lambda)
+        g_state[:]=dgemm(alpha=-1,a=F_state,b=f,beta=1,c=g_state)
+        g_input[:]=dgemm(alpha=-1,a=F_input,b=f,beta=1,c=g_input)
 

@@ -8,6 +8,7 @@ import math
 import numpy as np
 import json
 import csv
+INIT = False
 
 #function specific imports
 import nested_dissect
@@ -112,10 +113,21 @@ nhorizon=int(nhorizon)
 nstates= int(nstates)
 ninputs=int(ninputs)
 
+#INIT looks identical to the solve_lqr.cuh, 3D array use A[i] to get the matrix
+if(INIT):
+    for i in range(nhorizon):
+        print(f"A matrix \n:{i} , {A[i]}")
+        print(f"B matrix: \n{B[i]}")
+        print(f"Q matrix \n:{Q[i]}")
+        print(f"R matrix: \n{R[i]}")
+        print(f"q  {q[i]}")
+        print(f"r {r[i]}")
+        print(f"d {d[i]}")
+
+
 
 #A = A.reshape(-1,A.shape[-1]) #makes a long list of A matrices
-#by this point we are done with data preparation, all the arrays are 3d 
-#first dimension is the index
+
 
 #imitating calling the kernel
 solve_kernel.solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d)
