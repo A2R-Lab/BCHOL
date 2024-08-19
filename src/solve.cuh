@@ -6,7 +6,6 @@
 #include "../GLASS/glass.cuh"
 #include "helpf.cuh"
 __device__ const bool DEBUG = true;
-__device__ const bool SAFE_MOOD = true;
 __device__ const int BLOCK = 0;
 __device__ const bool THREAD = 0;
 __device__ int error_flag = 0;
@@ -66,7 +65,6 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
   set_const(fstates_size, 0.0f, d_F_lambda);
   set_const(fstates_size, 0.0f, d_F_state);
   set_const(fcontrol_size, 0.0f, d_F_input);
-  // CHANGED!
 
   // move ram to shared
   copy2<float>(Q_R_size, 1, d_Q_R, s_Q_R, dyn_step * (nhorizon - 1), 1, d_A_B, s_A_B);
@@ -79,19 +77,18 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
 
 
   // Make sure Q_R are non-zeros across diagonal
-  // for (int i = block_id; i < nhorizon; i++)
-  // {
-  //   add_epsln(nstates, s_Q_R + i * cost_step);
-  // }
-  // block.sync();
-
+  for (int i = block_id; i < nhorizon; i++)
+  {
+    add_epsln(nstates, s_Q_R + i * cost_step);
+  }
   block.sync();
+
 
   if (!DEBUG && block_id == BLOCK && thread_id == THREAD)
   {
     printf("Check init\n"); // fixed!
     printf("B 0 %f", s_A_B[states_sq]);
-    printf("\n B_3 %f",s_A_B[states_sq+3]);
+    printf("\n B_4 %f",s_A_B[states_sq+4]);
     for (int i = 0; i < nhorizon - 1; i++)
     {
       printf("A %d\n", i);
@@ -437,7 +434,7 @@ __global__ void solve_BCHOL(uint32_t nhorizon,
         uint32_t k = b_id * num_copies + t_id;
         int index = getIndexFromLevel(nhorizon, depth, level, k, s_levels);
         bool calc_lambda = shouldCalcLambda(index, k, nhorizon, s_levels); // nhorizon, s_levels
-        if(DEBUG&&block_id==BLOCK&&thread_id==THREAD){
+        if(!DEBUG&&block_id==BLOCK&&thread_id==THREAD){
           printf("L %d soln level %d,k %d,i %d, calc_lambda %d\n",L,level,k,index,calc_lambda );
         }
         updateShur_sol<float>(s_F_state, s_F_input, s_F_lambda, s_q_r, s_d, index, k, level,
