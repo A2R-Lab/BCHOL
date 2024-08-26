@@ -95,11 +95,15 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
         F2_state = s_F_state[(index+1)]
         S = s_F_lambda[(index+1)]
         # Perform dgemv operations
-        S[:] = dgemv(alpha=1, a=C1_state, x=F1_state, beta=-1, y=S, trans=1)
+        # S[:] = dgemv(alpha=1, a=C1_state, x=F1_state, beta=-1, y=S, trans=1)
+        S = np.dot(C1_state.T, F1_state) - S
+
 
         S[:] = dgemv(alpha=1, a=C1_input.T, x=F1_input, beta=1, y=S)
 
         S +=-1*F2_state
+        s_F_lambda[index+1]=S
+
 
     else:
         lin_ind = index+(nhorizon*fact_level)
@@ -145,8 +149,7 @@ def updateShur (s_F_state,s_F_input,s_F_lambda,index,i,level,
 
 
     if sol:
-        if(i+1==8):
-            print(index, i, level)
+
         f = d[index+1]
         g_state = q[i]
         g_input = r[i]

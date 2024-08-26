@@ -48,12 +48,10 @@ def solve_kernel(knot_points,control_size, state_size,
    #Starting big loop
   for level in range (depth):
         #get the vars for the big loop
-      print("started big loop")
       indx_atlevel = nested_dissect.getValuesAtLevel(binary_tree,level)
 
       count =len(indx_atlevel) 
       L = int(np.power(2.0,(depth-level-1)))
-      print("L",L)
       cur_depth = depth-level
       upper_levels = cur_depth-1
       num_factors = knot_points*upper_levels
@@ -114,8 +112,8 @@ def solve_kernel(knot_points,control_size, state_size,
             calc_lambda  = nested_dissect.shouldCalcLambda(index, k,binary_tree)
             g = k+knot_points*upper_level
             nested_dissect.updateShur(F_state,F_input,F_lambda,index,k,level,upper_level,calc_lambda,knot_points)
-            
-   #The big loop is fully correct!
+
+
 
    #soln vector loop 
   for level in range (depth):
@@ -123,24 +121,22 @@ def solve_kernel(knot_points,control_size, state_size,
      indx_atlevel = nested_dissect.getValuesAtLevel(binary_tree,level)
      count = len(indx_atlevel)
      num_perblock = knot_points // count
-     print("started soln L ",L)
-     print("level ",level)
 
      
-   #calculate inner products with rhc
+   #calculate inner products with rhc - seems to be CORRECT
      for leaf in range(L):
          lin_ind = int(np.power(2,level)*(2*leaf+1)-1)
          nested_dissect.factorInnerProduct(A,B,q,r,d,lin_ind,0,knot_points,sol=True)
+
+     
    
    #solve for separator vars with Cached cholesky
      for leaf in range(L):
          lin_ind = int(np.power(2,level)*(2*leaf+1)-1)
          Sbar = F_lambda[level * knot_points + (lin_ind + 1)]
-         zy = d[lin_ind+1]
-         if(nested_dissect.is_choleskysafe(zy)):    
-            zy[:]=linalg.cho_solve((Sbar,True),zy,overwrite_b=True)
-         else:
-            print("Cant sovle Chol in soln")
+         zy = d[lin_ind+1]   
+         zy[:]=linalg.cho_solve((Sbar,True),zy,overwrite_b=True)
+
 
 
 
