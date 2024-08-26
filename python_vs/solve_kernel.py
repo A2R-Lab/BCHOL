@@ -43,6 +43,8 @@ def solve_kernel(knot_points,control_size, state_size,
   for ind in range (knot_points):
       nested_dissect.solveLeaf(binary_tree,ind, state_size,knot_points,Q,R,q,r,A,B,d,F_lambda,F_state, F_input)
 
+
+
    #Starting big loop
   for level in range (depth):
         #get the vars for the big loop
@@ -58,8 +60,8 @@ def solve_kernel(knot_points,control_size, state_size,
       num_perblock = num_factors//L
  
 
-      #NEED TO FIX UPPER TRIANGLE VS LOWER TRIANGLE!
        #calc inner products Bbar and bbar (to solve y in Schur)
+       #CORRECT!
       for b_ind in range (L):
          for t_ind in range(cur_depth):
             ind = b_ind * cur_depth + t_ind
@@ -68,7 +70,9 @@ def solve_kernel(knot_points,control_size, state_size,
             lin_ind = int(np.power(2.0, level)) * (2 * leaf + 1) - 1
             nested_dissect.factorInnerProduct(A,B, F_state, F_input, F_lambda, lin_ind, upper_level, knot_points)
 
-      #cholesky fact for Bbar/bbar
+
+
+      #cholesky fact for Bbar/bbar -seems to be correct
       for leaf in range (L):
          index = int(np.power(2.0, level)) * (2 * leaf + 1) - 1
          lin_ind = index + knot_points * level
@@ -79,9 +83,11 @@ def solve_kernel(knot_points,control_size, state_size,
             print(f"Can't factor Cholesky {lin_ind} :\n")
             print(F_lambda[lin_ind])
 
+
+
       
 
-      #solve with Chol factor for y
+      #solve with Chol factor for y - correct for first pass!
       for b_id in range(L):
          for t_id in range(upper_levels):
             i = b_id*upper_levels+t_id
@@ -96,12 +102,7 @@ def solve_kernel(knot_points,control_size, state_size,
             else:
                print("Cant sovle Chol")
                
-      # print("after solveChol")
-      # for i in range(knot_points*depth):
-      #     print(f"F_lamda {i} \n: {F_lambda[i]}")
-      #     print(f"F_state {i}:\n{F_state[i]}")
-      #     print(f"F_input{i}: \n {F_input[i]}")
-      
+
 
    # update SHUR - update x and z compliments      
       for b_id in range(L):
@@ -111,17 +112,10 @@ def solve_kernel(knot_points,control_size, state_size,
             upper_level = level+1+(i%upper_levels)
             index = nested_dissect.getIndexFromLevel(knot_points,depth,level,k,binary_tree)
             calc_lambda  = nested_dissect.shouldCalcLambda(index, k,binary_tree)
-            print(calc_lambda)
-
-            print(f"norm i {i}, index {index}, calc lambda {calc_lambda}\n")
             g = k+knot_points*upper_level
             nested_dissect.updateShur(F_state,F_input,F_lambda,index,k,level,upper_level,calc_lambda,knot_points)
-      # print("after SHUR")
-      # for i in range(knot_points*depth):
-      #     print(f"F_lamda {i} \n: {F_lambda[i]}")
-      #     print(f"F_state {i}:\n{F_state[i]}")
-      #     print(f"F_input{i}: \n {F_input[i]}")
-
+            
+   #The big loop is fully correct!
 
    #soln vector loop 
   for level in range (depth):

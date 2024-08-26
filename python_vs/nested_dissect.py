@@ -31,7 +31,7 @@ def  getValuesAtLevel(binarytree,level):
     return index_dict.get(level, []) 
     
     
-#Should be good correct
+#correct
 def solveLeaf(levels,index, nstates,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
               s_F_lambda,s_F_state,s_F_input):
     level = levels[index]
@@ -84,7 +84,7 @@ def solveLeaf(levels,index, nstates,nhorizon,s_Q,s_R,s_q,s_r,s_A,s_B,s_d,
         F_state_prev[:]=linalg.cho_solve((Q,lower_Q),F_state_prev,overwrite_b=True)
         
 
-#w
+#
 def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
                        fact_level,nhorizon,sol=False):
     C1_state=s_A[index]
@@ -98,6 +98,7 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
         S[:] = dgemv(alpha=1, a=C1_state, x=F1_state, beta=-1, y=S, trans=1)
 
         S[:] = dgemv(alpha=1, a=C1_input.T, x=F1_input, beta=1, y=S)
+
         S +=-1*F2_state
 
     else:
@@ -106,12 +107,15 @@ def factorInnerProduct(s_A,s_B, s_F_state,s_F_input,s_F_lambda,index,
         F1_input = s_F_input[lin_ind]
         F2_state = s_F_state[(index+1)+nhorizon*fact_level]
         S = s_F_lambda[(index+1)+nhorizon*fact_level]
-
+       
         # Perform dgemm operations
-        S[:] = dgemm(alpha=1, a=C1_state, b=F1_state, beta=-1, c=S, trans_b=1)
+        #HERES THE PROBLEM! check dgemm later
+        # S[:] = dgemm(alpha=1, a=C1_state.T, b=F1_state, beta=-1, c=S, trans_b=1)
 
+        S = np.dot(C1_state.T, F1_state) - S
         S[:] = dgemm(alpha=1, a=C1_input.T, b=F1_input, beta=1, c=S)
         S +=-1*F2_state
+        s_F_lambda[(index+1)+nhorizon*fact_level] = S
 
 #Write tests
 def getIndexFromLevel(nhorizon,depth,level,i,levels):
