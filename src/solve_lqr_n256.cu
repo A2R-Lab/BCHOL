@@ -9,17 +9,18 @@
 #include <vector>
 #include "gpu_assert.cuh"
 
-
 __host__ int main()
 {
-  
+
   printf("Run Test\n");
-   std::cout << __cplusplus << std::endl;
+  std::cout << __cplusplus << std::endl;
   // Declaration of LQR problem
   uint32_t knot_points = 8;
   uint32_t state_size = 6;
   uint32_t control_size = 3;
   uint32_t depth = log2(knot_points);
+
+
 
   // calculating the constants
   const uint32_t states_sq = state_size * state_size;
@@ -46,10 +47,9 @@ __host__ int main()
   float soln[soln_size];
 
   float my_soln[soln_size];
-
-  // // Reading the LQR problem
-  read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d,soln);
-
+  
+    // // Reading the LQR problem
+    read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d, soln);
 
 
   // Allocate memory on the GPU for x0,Q_R,q_r, A_B, d,
@@ -79,12 +79,12 @@ __host__ int main()
 
   // Launch CUDA kernel with block and grid dimensions
   // find a way to automate number of threads and blocks
-  std::uint32_t blockSize = 1;
-  std::uint32_t gridSize = 1;
+  std::uint32_t blockSize = 64;
+  std::uint32_t gridSize = 8;
 
-  //put it into a function
+  // put it into a function
   uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES + KKT_G_DENSE_SIZE_BYTES + KKT_c_SIZE_BYTES + KKT_g_SIZE_BYTES +
-                                   KKT_FCONTROL_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + (knot_points * 3 * sizeof(int))+500;
+                                   KKT_FCONTROL_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + KKT_FSTATES_SIZE_BYTES + (knot_points * 3 * sizeof(int)) + 500;
 
   std::cout << "shared_mem: " << bchol_shared_mem_size << std::endl;
 
@@ -155,7 +155,7 @@ __host__ int main()
     }
   }
 
- if (checkEquality(my_soln, soln, soln_size))
+  if (checkEquality(my_soln, soln, soln_size))
   {
     printf("PASSED!\n");
   }

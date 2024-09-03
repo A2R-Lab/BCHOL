@@ -53,6 +53,9 @@ __host__ __device__ void printMatrix(T *matrix, uint32_t rows, uint32_t cols)
     }
 }
 
+
+
+
 /** @brief Prints the facotrizatoin matrices and the solution vectors.
  * @param T *F_lambda, F_state, F_input - pointer to the stored factorization matrices
  * @param T *d, *q_r - pointer to the state and q_r vector / solution vectors.
@@ -80,7 +83,7 @@ __host__ __device__ void print_KKT(T *F_lambda, T *F_state, T *F_input, T *d,
         printMatrix(F_state + (ind * states_sq), nstates, nstates);
 
         printf("\nF_input #%d: \n", ind);
-        printMatrix(F_input + ind * inp_states, nstates, ninputs);
+        printMatrix(F_input + ind * inp_states, ninputs, nstates);
     }
     for (unsigned i = 0; i < nhorizon - 1; i++)
     {

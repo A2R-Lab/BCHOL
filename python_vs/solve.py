@@ -8,6 +8,7 @@ import math
 import numpy as np
 import json
 import csv
+INIT = False
 
 #function specific imports
 import nested_dissect
@@ -23,11 +24,11 @@ def runSolve():
     """
 
 # Prompt the user to select the file type
-file_type = input("Enter 'json' or 'csv' to choose the file type: ")    
+file_type = "json"    
 
 # Read data based on user's choice
 if file_type == 'json':
-    file_name = input("Enter the JSON file name: ")
+    file_name = "lqr_prob.json"
     with open(file_name,'r') as file:
         data = json.load(file)
  
@@ -86,6 +87,7 @@ print("nstates",nstates)
 print("ninputs",ninputs)
 
 
+
 #transform the lists to numpy arrays
 Q =np.array([np.diag(row) for row in Q_list]) 
 R = np.array([np.diag(row) for row in R_list])
@@ -93,29 +95,23 @@ q = np.array(q_list)
 r = np.array(r_list)
 A = np.array(A_list)
 B = np.array(B_list)
-
-"""
-check if you need to transpose
-B = np.zeros((nhorizon,nstates,ninputs)) 
-
-#reshape B 
-for i in range(B.shape[0]):
-    first_part = B_v[i,:,:ninputs]
-    second_partt = B_v[i,:,ninputs:]
-    B[i] = np.vstack((first_part,second_partt))
-"""
 d = np.array(d_list)
 c = np.array(c_list)
 depth = int(math.log2(nhorizon))
-
 nhorizon=int(nhorizon)
 nstates= int(nstates)
 ninputs=int(ninputs)
 
-
-#A = A.reshape(-1,A.shape[-1]) #makes a long list of A matrices
-#by this point we are done with data preparation, all the arrays are 3d 
-#first dimension is the index
+#INIT looks identical to the solve_lqr.cuh, 3D array use A[i] to get the matrix
+if(INIT):
+    for i in range(nhorizon):
+        print(f"A matrix \n:{i} , {A[i]}")
+        print(f"B matrix: \n{B[i]}")
+        print(f"Q matrix \n:{Q[i]}")
+        print(f"R matrix: \n{R[i]}")
+        print(f"q  {q[i]}")
+        print(f"r {r[i]}")
+        print(f"d {d[i]}")
 
 #imitating calling the kernel
 solve_kernel.solve_kernel(nhorizon,ninputs,nstates,Q,R,q,r,A,B,d)

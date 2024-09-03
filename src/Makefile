@@ -8,7 +8,7 @@ CC_LIBS=
 
 # NVCC compiler options:
 NVCC=nvcc
-NVCC_FLAGS=-O3  --compiler-bindir=/usr/bin/g++-11
+NVCC_FLAGS=-g -G -O3  --compiler-bindir=/usr/bin/g++-11 -gencode arch=compute_86,code=sm_86
 NVCC_LIBS=
 
 # CUDA library directory:
@@ -27,3 +27,7 @@ rsLQR: $(OBJS)
 
 solve_lqr.o: solve_lqr.cu solve.cuh
 	$(NVCC) $(NVCC_FLAGS) -c $< -o $@ $(NVCC_LIBS)
+
+# Clean target
+clean:
+	rm -f $(OBJS) $(TARGET)

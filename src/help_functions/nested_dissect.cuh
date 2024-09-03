@@ -87,7 +87,7 @@ __device__ void solveLeaf(int *s_levels,
     cholSolve_InPlace<float>(R, r, false, ninputs, 1);             // zu = R\zu
 
     // Solve the block system of eqn (!overwriting d and q_r vectors!)
-    zy_temp = &s_F_state[nhorizon * states_sq]; //why>
+    zy_temp = &s_F_state[nhorizon * states_sq]; 
     glass_yana::copy<float>(nstates, 1.0, d, zy_temp);
     glass_yana::copy<float>(nstates, 1.0, q, d);
     __syncthreads();
