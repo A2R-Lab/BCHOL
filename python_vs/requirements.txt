@@ -1,2 +1,0 @@
-numpy==1.17  # or the more recent version if already installed
-scipy==1.3.3   # or the more recent version if already installed 
