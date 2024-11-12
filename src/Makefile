@@ -8,7 +8,7 @@ CC_LIBS=
 
 # NVCC compiler options:
 NVCC=nvcc
-NVCC_FLAGS=-g -G -O3  --compiler-bindir=/usr/bin/g++-11 -gencode arch=compute_86,code=sm_86
+NVCC_FLAGS=-g -G -O3  -gencode arch=compute_86,code=sm_86
 NVCC_LIBS=
 
 # CUDA library directory:
