@@ -9,7 +9,7 @@
 #include <cooperative_groups.h>
 #include <vector>
 #include "gpu_assert.cuh"
-bool INIT = true;
+bool INIT = false;
 
 __host__ int main()
 {
@@ -52,7 +52,7 @@ __host__ int main()
   // // Reading the LQR problem
   read_csv("../exmpls/pendulum8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d);
   //check the reading of the arrays
-  if(true) {
+  if(INIT) {
     for(int i =0; i<knot_points-1; i++){
       std::cout<<"i: "<<i<<std::endl;
       std::cout<<"Q: "<<std::endl;
@@ -168,6 +168,17 @@ __host__ int main()
     }
   }
 
+  std::cout<<"Check for the dxul format soln"<<std::endl;
+  printMatrix(q_r, soln_size-(state_size * knot_points), 1);    
+  
+  std::cout<<"lambdas: "<<std::endl;
+
+  printMatrix(d, state_size * knot_points, 1);    
+
+
+
+
+
 //  if (checkEquality(my_soln, soln, soln_size))
 //   {
 //     printf("PASSED!\n");
@@ -181,8 +192,8 @@ __host__ int main()
 //     printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
 //   }
 
-  std::cout << "size " << soln_size << std::endl;
-  printMatrix(my_soln, soln_size, 1);
+  // std::cout << "size " << soln_size << std::endl;
+  // printMatrix(my_soln, soln_size, 1);
 
   // Free allocated GPU memory
   gpuErrchk(cudaFree(d_Q_R));
