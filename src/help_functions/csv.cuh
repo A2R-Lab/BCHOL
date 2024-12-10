@@ -188,6 +188,8 @@ void read_csv(const std::string &filename, uint32_t nhorizon, uint32_t nstates, 
         return;
     }
 
+    std::cout<<"inside the csv func"<<std::endl;
+
     // Read the CSV line
     std::string line;
     if (!getline(fin, line))
