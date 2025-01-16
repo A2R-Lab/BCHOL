@@ -2,13 +2,14 @@
 #include <iostream>
 #include <numeric>
 #include <cmath>
+#include "help_functions/print_debug.cuh"
 #include "solve.cuh"
 #include "helpf.cuh"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <vector>
 #include "gpu_assert.cuh"
-
+bool INIT = false;
 
 __host__ int main()
 {
@@ -17,8 +18,8 @@ __host__ int main()
    std::cout << __cplusplus << std::endl;
   // Declaration of LQR problem
   uint32_t knot_points = 8;
-  uint32_t state_size = 6;
-  uint32_t control_size = 3;
+  uint32_t state_size = 2;
+  uint32_t control_size = 1;
   uint32_t depth = log2(knot_points);
 
   // calculating the constants
@@ -47,11 +48,23 @@ __host__ int main()
 
   float my_soln[soln_size];
 
+
   // // Reading the LQR problem
-  read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d,soln);
-
-
-
+  read_csv("../exmpls/pendulum8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d);
+  //check the reading of the arrays
+  if(INIT) {
+    for(int i =0; i<knot_points-1; i++){
+      std::cout<<"i: "<<i<<std::endl;
+      std::cout<<"Q: "<<std::endl;
+      printMatrix(Q_R+(i*(states_sq+controls_sq)),  state_size, state_size);
+      std::cout<<"R: "<<std::endl;
+      printMatrix(Q_R+(i*(states_sq+controls_sq)+states_sq), control_size,control_size);
+      std::cout<<"A: "<<std::endl;
+      printMatrix(A_B+(i*(states_sq+states_p_controls)),  state_size, state_size);
+      std::cout<<"B: "<<std::endl;
+      printMatrix(A_B+(i*(states_sq+states_p_controls)+states_sq), control_size,state_size);
+    }
+  }
   // Allocate memory on the GPU for x0,Q_R,q_r, A_B, d,
 
   float *d_Q_R, *d_q_r, *d_A_B, *d_d,
@@ -79,8 +92,8 @@ __host__ int main()
 
   // Launch CUDA kernel with block and grid dimensions
   // find a way to automate number of threads and blocks
-  std::uint32_t blockSize = 1;
-  std::uint32_t gridSize = 1;
+  std::uint32_t blockSize = 64;
+  std::uint32_t gridSize = 8;
 
   //put it into a function
   uint32_t bchol_shared_mem_size = KKT_C_DENSE_SIZE_BYTES + KKT_G_DENSE_SIZE_BYTES + KKT_c_SIZE_BYTES + KKT_g_SIZE_BYTES +
@@ -155,21 +168,32 @@ __host__ int main()
     }
   }
 
- if (checkEquality(my_soln, soln, soln_size))
-  {
-    printf("PASSED!\n");
-  }
-  else
-  {
-    printf("Not Passed");
-    printf("my_soln\n");
-    printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
-    printf("Soln\n");
-    printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
-  }
+  std::cout<<"Check for the dxul format soln"<<std::endl;
+  printMatrix(q_r, soln_size-(state_size * knot_points), 1);    
+  
+  std::cout<<"lambdas: "<<std::endl;
 
-  std::cout << "size " << soln_size << std::endl;
-  printMatrix(my_soln, soln_size, 1);
+  printMatrix(d, state_size * knot_points, 1);    
+
+
+
+
+
+//  if (checkEquality(my_soln, soln, soln_size))
+//   {
+//     printf("PASSED!\n");
+//   }
+//   else
+//   {
+//     printf("Not Passed");
+//     printf("my_soln\n");
+//     printMatrix(my_soln, (state_size + state_size + control_size) * 2, 1);
+//     printf("Soln\n");
+//     printMatrix(soln, (state_size + state_size + control_size) * 2, 1);
+//   }
+
+  // std::cout << "size " << soln_size << std::endl;
+  // printMatrix(my_soln, soln_size, 1);
 
   // Free allocated GPU memory
   gpuErrchk(cudaFree(d_Q_R));
