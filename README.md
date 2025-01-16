@@ -1,4 +1,4 @@
-# BCHOL - rsLQR implementation in CUDA
+# BCHOL - Block Cholesky implementation in CUDA
 
 Contains the CUDA accelerated code of the Recursive Schur LQR algorithm. The original C implementation can be found here: https://github.com/bjack205/rsLQR/
 
@@ -46,9 +46,15 @@ This method is part of the GATO solver (GPU Accelerated Trajectory Optimization)
 ```
 
 ## Usage
-After running the make command you should have the *./rsLQR* executable in the src folder.  Run it to see the [example](https://github.com/bjack205/rsLQR/blob/main/lqr_prob.json) of the solver provided by Brian Jackson. You can run your example by providing 'json' file of the LQR problem. Check *solve_lqe.cu* for the example of usage.
+After running the make command you should have the *./rsLQR* executable in the src folder.  Run it to see the [example](https://github.com/bjack205/rsLQR/blob/main/lqr_prob.json) of the solver provided by Brian Jackson.
 
 `./rsLQR`
+
+You can run your example by putting the 'csv' file of the LQR problem in \exmpls folder and changing the name of the example in *solve_lqe.cu* line 53 :
+
+`read_csv("../exmpls/lqr_prob8.csv", knot_points, state_size, control_size, Q_R, q_r, A_B, d); `
+
+
 
 ## Documentation
 It is highly recommended to read the paper [A Parallell Linear System Solver for Optimal Control](https://bjack205.github.io/papers/rslqr.pdf) by Brian E. Jackson prior to using this code.
