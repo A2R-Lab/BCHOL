@@ -45,12 +45,14 @@ This method is part of the GATO solver (GPU Accelerated Trajectory Optimization)
    make
    
 ## Usage
-After running the make command you should have the *./rsLQR* executable in the src folder. Run it to see the example of the solver:
+After running the make command you should have the *./rsLQR* executable in the src folder.  Run it to see the [example](https://github.com/bjack205/rsLQR/blob/main/lqr_prob.json) of the solver provided by Brian Jackson. You can run your example by providing 'json' file of the LQR problem. Check *solve_lqe.cu* for the example of usage.
 
 ```bash
 ./rsLQR
 
+## Documentation
+It is highly recommended to read the paper [A Parallell Linear System Solver for Optimal Control](https://bjack205.github.io/papers/rslqr.pdf) by Brian E. Jackson prior to using this code.
 
-You can run your own example by providing 'json' file of the LQR problem. Check *solve_lqe.cu* for the example of usage.
+Additional documentation and graphical explanation has been provided by Yana Botvinnik (here)[]
 
 
