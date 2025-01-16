@@ -52,7 +52,13 @@ The paper focuses on solving the **Linear Quadratic Regulator (LQR)** problem by
 | **Schur Compliments Matrix** | **The red block in the upper left corner is A, the red lower-right block is C. The top vertical green block is D, and the bottom green vertical block is E.** |
 
   
-- Application to real-time systems where high throughput and low latency are critical.
+- Solving with Schur from the lowest levels  - bottom up to the original KKT
+
+![The lowest partition of the matrix - each timestep is independent ](https://github.com/user-attachments/assets/591f1008-fbd0-4615-beac-13b258274b6d)
+
+![image](https://github.com/user-attachments/assets/94b0eaac-8fae-451f-b94b-b9af20e13565)
+[](https://github.com/user-attachments/assets/bc244c63-d9f8-4ca5-a326-bc782c5df4f4)
+
 
 ### Abstract Summary:
 *Insert the abstract or a summarized version here, highlighting the core contributions.*
