@@ -54,10 +54,10 @@ The paper focuses on solving the **Linear Quadratic Regulator (LQR)** problem by
   
 - Solving with Schur from the lowest levels  - bottom up to the original KKT
 
-![The lowest partition of the matrix - each timestep is independent ](https://github.com/user-attachments/assets/591f1008-fbd0-4615-beac-13b258274b6d)
+| Lowest Partition (Each System is Independent) | First Level (Each System Consists of Two Sequential Timesteps) | Second Level (Original System of 4 Timesteps) |
+|------------------------------------------------|---------------------------------------------------------------|-------------------------------------------------|
+| ![The lowest partition of the matrix - each system is independent](https://github.com/user-attachments/assets/591f1008-fbd0-4615-beac-13b258274b6d) | ![First level - each system is consisting of two sequential timesteps](https://github.com/user-attachments/assets/94b0eaac-8fae-451f-b94b-b9af20e13565) | ![Second level - the original system of 4 timesteps](https://github.com/user-attachments/assets/58abfb9f-6d7d-4c06-b056-6d0e2f9ff6aa) |
 
-![image](https://github.com/user-attachments/assets/94b0eaac-8fae-451f-b94b-b9af20e13565)
-[](https://github.com/user-attachments/assets/bc244c63-d9f8-4ca5-a326-bc782c5df4f4)
 
 
 ### Abstract Summary:
