@@ -1,44 +1,7 @@
 # Documentation
 
-This directory contains detailed documentation for the project, including links to related papers, code variable explanations, implementation details, and unique features of the CUDA-based implementation.
-
+This directory contains detailed documentation for the project, including links to related papers, code variable explanations, implementation details and diagrams, and unique features of the CUDA-based implementation.
 ---
-<svg width="500" height="300" xmlns="http://www.w3.org/2000/svg">
-  <!-- Nodes -->
-  <circle cx="50" cy="250" r="20" fill="lightblue" stroke="black" />
-  <text x="45" y="255" fill="black">0</text>
-  <circle cx="150" cy="250" r="20" fill="lightblue" stroke="black" />
-  <text x="145" y="255" fill="black">2</text>
-  <circle cx="250" cy="250" r="20" fill="lightblue" stroke="black" />
-  <text x="245" y="255" fill="black">4</text>
-  <circle cx="350" cy="250" r="20" fill="lightblue" stroke="black" />
-  <text x="345" y="255" fill="black">6</text>
-  <circle cx="100" cy="150" r="20" fill="lightgreen" stroke="black" />
-  <text x="95" y="155" fill="black">1</text>
-  <circle cx="300" cy="150" r="20" fill="lightgreen" stroke="black" />
-  <text x="295" y="155" fill="black">5</text>
-  <circle cx="200" cy="50" r="20" fill="pink" stroke="black" />
-  <text x="195" y="55" fill="black">3</text>
-  <!-- Edges -->
-  <line x1="50" y1="230" x2="100" y2="170" stroke="black" stroke-width="2">
-    <animate attributeName="stroke" from="gray" to="red" begin="0s" dur="1s" fill="freeze" />
-  </line>
-  <line x1="150" y1="230" x2="100" y2="170" stroke="black" stroke-width="2">
-    <animate attributeName="stroke" from="gray" to="red" begin="1s" dur="1s" fill="freeze" />
-  </line>
-  <line x1="250" y1="230" x2="300" y2="170" stroke="black" stroke-width="2">
-    <animate attributeName="stroke" from="gray" to="red" begin="2s" dur="1s" fill="freeze" />
-  </line>
-  <line x1="350" y1="230" x2="300" y2="170" stroke="black" stroke-width="2">
-    <animate attributeName="stroke" from="gray" to="red" begin="3s" dur="1s" fill="freeze" />
-  </line>
-  <line x1="100" y1="130" x2="200" y2="70" stroke="black" stroke-width="2">
-    <animate attributeName="stroke" from="gray" to="red" begin="4s" dur="1s" fill="freeze" />
-  </line>
-  <line x1="300" y1="130" x2="200" y2="70" stroke="black" stroke-width="2">
-    <animate attributeName="stroke" from="gray" to="red" begin="5s" dur="1s" fill="freeze" />
-  </line>
-</svg>
 
 
 ## Table of Contents
@@ -53,19 +16,29 @@ This directory contains detailed documentation for the project, including links 
 
 ## Paper Link
 
-The algorithm and methodology for this project are based on the following paper:
+**[A Parallell Linear System Solver for Optimal Control](https://bjack205.github.io/papers/rslqr.pdf)** 
 
-**[Insert Paper Title Here](https://example.com)**  
-*Author(s):* [Author Names]  
-*Published in:* [Conference/Journal Name]  
+This documentation is designed to enhance the understanding of the algorithm and methodology outlined in the paper [A Parallel Linear System Solver for Optimal Control by Brian E. Jackson.
+
+Specifically, it aims to:
+
+  - Provide a clearer interpretation of the paper's concepts through additional examples and diagrams.
+ - Serve as a terminology reference, bridging the naming conventions used by Brian and those used in the GATO repository.
+ - Explain the unique aspects of the CUDA implementation, emphasizing its structure, efficiency, and parallelization approach.
+   
+Brian's original documentation can be accessed [here](https://github.com/bjack205/rsLQR/tree/main/docs).
 
 ---
 
 ## Paper Overview
 
-The paper focuses on solving the **Linear Quadratic Regulator (LQR)** problem using GPU-accelerated approaches. Key contributions of the paper include:
+The paper focuses on solving the **Linear Quadratic Regulator (LQR)** problem by rearranging and partitioning the original KKT matrix and solving it with recursive schur compliments. Key steps of the solver method include:
 
-- A novel approach to solving LQR problems efficiently on NVIDIA GPUs.
+- Rearranging the KKT matrix [ include picture ]
+  ![original KKT matrix](https://github.com/user-attachments/assets/96655878-40e9-4f9a-8be2-20f87b284b60)
+  ![rearranged KKT matrix](https://github.com/user-attachments/assets/58abfb9f-6d7d-4c06-b056-6d0e2f9ff6aa)
+
+
 - Performance comparisons with CPU-based and other GPU-based methods.
 - Application to real-time systems where high throughput and low latency are critical.
 
