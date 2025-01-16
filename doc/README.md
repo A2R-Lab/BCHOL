@@ -34,9 +34,21 @@ Brian's original documentation can be accessed [here](https://github.com/bjack20
 
 The paper focuses on solving the **Linear Quadratic Regulator (LQR)** problem by rearranging and partitioning the original KKT matrix and solving it with recursive schur compliments. Key steps of the solver method include:
 
-- Rearranging the KKT matrix [ include picture ]
-  ![original KKT matrix](https://github.com/user-attachments/assets/96655878-40e9-4f9a-8be2-20f87b284b60)
-  ![rearranged KKT matrix](https://github.com/user-attachments/assets/58abfb9f-6d7d-4c06-b056-6d0e2f9ff6aa)
+- Rearranging the KKT matrix
+  
+<div style="display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+
+  <div style="text-align: center;">
+    <img src="https://github.com/user-attachments/assets/96655878-40e9-4f9a-8be2-20f87b284b60" alt="Original KKT matrix" width="300" />
+    <p>Original KKT Matrix</p>
+  </div>
+
+  <div style="text-align: center;">
+    <img src="https://github.com/user-attachments/assets/58abfb9f-6d7d-4c06-b056-6d0e2f9ff6aa" alt="Rearranged KKT matrix" width="300" />
+    <p>Rearranged KKT Matrix</p>
+  </div>
+
+</div>
 
 
 - Performance comparisons with CPU-based and other GPU-based methods.
