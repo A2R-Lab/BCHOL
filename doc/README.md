@@ -61,7 +61,10 @@ The paper focuses on solving the **Linear Quadratic Regulator (LQR)** problem by
 
 
 ### Abstract Summary:
-*Insert the abstract or a summarized version here, highlighting the core contributions.*
+*Using a recursive application of
+Schur compliments, the algorithm has a theoretical O(log(N))
+complexity in the time horizon, and maps well onto many-core
+processors. [cited from A Parallel Linear System Solver for Optimal Control]*
 
 ---
 
