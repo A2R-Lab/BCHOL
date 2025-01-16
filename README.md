@@ -33,7 +33,7 @@ This method is part of the GATO solver (GPU Accelerated Trajectory Optimization)
 3. **Build Tools**:
    - `make` utility is required to build the project.
   
-   ## Installation
+## Installation
 
    This solver uses our GPU Linear Algebra Simple Subrotoutines (GLASS) library as a submodule, as it has proved to be faster for smaller problems than the traditional cuBLASS library.
    
@@ -43,7 +43,8 @@ This method is part of the GATO solver (GPU Accelerated Trajectory Optimization)
    cd BCHOL
    cd src
    make
-   
+```
+
 ## Usage
 After running the make command you should have the *./rsLQR* executable in the src folder.  Run it to see the [example](https://github.com/bjack205/rsLQR/blob/main/lqr_prob.json) of the solver provided by Brian Jackson. You can run your example by providing 'json' file of the LQR problem. Check *solve_lqe.cu* for the example of usage.
 
