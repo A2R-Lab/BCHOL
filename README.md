@@ -1,6 +1,6 @@
 # BCHOL - Block Cholesky implementation in CUDA
 
-Contains the CUDA accelerated code of the Recursive Schur LQR algorithm. The original C implementation can be found here: https://github.com/bjack205/rsLQR/
+Contains the CUDA accelerated code of the Recursive Schur LQR algorithm. The original C implementation can be found [here](https://github.com/bjack205/rsLQR/)
 
 Python implementation of the code can be found [here](https://github.com/A2R-Lab/BCHOL-python)
 
