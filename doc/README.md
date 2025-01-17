@@ -70,17 +70,23 @@ processors. [cited from A Parallel Linear System Solver for Optimal Control]*
 
 ## Code Dictionary for Variables
 
-| Variable Name | Description                                     |
-|---------------|-------------------------------------------------|
-| `A`           | State-transition matrix.                       |
-| `B`           | Control matrix.                                |
-| `Q`           | State cost matrix.                             |
-| `R`           | Control cost matrix.                           |
-| `K`           | Optimal feedback gain matrix.                  |
-| `X`           | System state vector.                           |
-| `U`           | Control input vector.                          |
+Hence there are many different names for Control and State variables  we provide this table to further facilitate understanding of our code in BCHOL (corresponding to the paper vars) and its integration into the [GATO](https://github.com/A2R-Lab/GATO) repository. 
 
-*Note:* Include additional variables and their descriptions as needed.
+| Variable Name in the Paper    | Access in BCHOL        | Variable Name in GATO       | Description                              |
+|-------------------------------|------------------------|-----------------------------|------------------------------------------|
+| `A` - State-transition matrix.| `A_B` array            | `A` is part of the `C_dense`| The matrix that defines how the state evolves over time. |
+| `B` - Control matrix.         | `A_B` array            | 'B' is part of the `C_dense`| The matrix that relates the control inputs to the system state. |
+| `Q` - State cost matrix.      | `Q_R` array            | 'Q' is part of the `G_dense`| A matrix used in the cost function that penalizes deviations from the desired state. |
+| `R`- Control cost matrix.     | `Q_R` array            | `R` is part of the `G_dense`| A matrix used in the cost function that penalizes control efforts. |
+| `q` - state cost vector       | `q_r`                  | q is part of the `g_dense`  | A vector used in the cost function to penalize deviations in the system state. |
+| `r`- control cost vector      | `q_r`                  | r is part of the `g_dense`  | A vector used in the cost function to penalize control efforts. |
+| `d/f`- control cost vector      | `q_r`                  | r is part of the `g_dense`  | A vector used in the cost function to penalize control efforts. |
+| `x` - system state vector     | the system solves in place and puts x values into `q_r` instead of the q vector | 'x' is part of the dxul   | A vector that represents the state of the system at a given time. |
+| `u`                           | the system solves in place and puts u values into `q_r` instead of the r vector| `r` is part of the dxul  | A vector that represents the control input applied to the system. |
+| `λ` (Lambda) - dual variables     |  the system solves in place and puts lambda values into `d`  | lambda is part of the `dxul`  | A vector represents Lagrange multipliers or dual variables used to enforce constraints in optimization problems
+
+
+*It's important to mention that B matrix is transformed in BCHOL 
 
 ---
 
