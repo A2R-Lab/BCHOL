@@ -59,6 +59,6 @@ You can run your example by putting the 'csv' file of the LQR problem in \exmpls
 ## Documentation
 It is highly recommended to read the paper [A Parallell Linear System Solver for Optimal Control](https://bjack205.github.io/papers/rslqr.pdf) by Brian E. Jackson prior to using this code.
 
-Additional documentation and graphical explanation has been provided by Yana Botvinnik (here)[]
+Additional documentation and graphical explanation has been provided by Yana Botvinnik [here](https://github.com/A2R-Lab/BCHOL/tree/main/doc).
 
 
