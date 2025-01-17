@@ -78,15 +78,16 @@ Hence there are many different names for Control and State variables  we provide
 | `B` - Control matrix.         | `A_B` array            | 'B' is part of the `C_dense`| The matrix that relates the control inputs to the system state. |
 | `Q` - State cost matrix.      | `Q_R` array            | 'Q' is part of the `G_dense`| A matrix used in the cost function that penalizes deviations from the desired state. |
 | `R`- Control cost matrix.     | `Q_R` array            | `R` is part of the `G_dense`| A matrix used in the cost function that penalizes control efforts. |
-| `q` - state cost vector       | `q_r`                  | q is part of the `g_dense`  | A vector used in the cost function to penalize deviations in the system state. |
-| `r`- control cost vector      | `q_r`                  | r is part of the `g_dense`  | A vector used in the cost function to penalize control efforts. |
-| `d/f`- control cost vector      | `q_r`                  | r is part of the `g_dense`  | A vector used in the cost function to penalize control efforts. |
+| `q` - state cost vector       | `q_r` array            | q is part of the `g_dense`  | A vector used in the cost function to penalize deviations in the system state. |
+| `r`- control cost vector      | `q_r` array            | r is part of the `g_dense`  | A vector used in the cost function to penalize control efforts. |
+| `d/f`- DOUBLE CHECK            | `d` array             | DOUBLE CHECK                | A vector that saved the initial position and future [] |
 | `x` - system state vector     | the system solves in place and puts x values into `q_r` instead of the q vector | 'x' is part of the dxul   | A vector that represents the state of the system at a given time. |
-| `u`                           | the system solves in place and puts u values into `q_r` instead of the r vector| `r` is part of the dxul  | A vector that represents the control input applied to the system. |
+| `u` - control input vector   | the system solves in place and puts u values into `q_r` instead of the r vector| `u` is part of the dxul  | A vector that represents the control input applied to the system. |
 | `λ` (Lambda) - dual variables     |  the system solves in place and puts lambda values into `d`  | lambda is part of the `dxul`  | A vector represents Lagrange multipliers or dual variables used to enforce constraints in optimization problems
 
 
 *It's important to mention that B matrix is transformed in BCHOL 
+** Maybe add F_lambda, F_state, F_input over here(??)
 
 ---
 
@@ -94,22 +95,47 @@ Hence there are many different names for Control and State variables  we provide
 
 The code is structured into the following main components:
 
-1. **Main Solver (`solve_lqr.cu`)**:  
-   The CUDA kernel that implements the LQR solution.
+1. **Solver launch (`solve_lqr.cu`)**:  
+   The initialization of LQR problem, memory allocation and launch of CUDA kernel that implements the LQR solution.
 
-2. **Header File (`solve.cuh`)**:  
-   Contains function declarations, constants, and data structures.
+2. **The main Kernel (`solve.cuh`)**:  
+   Contains the main BCHOL kernel and calls to the helper functions.
+   
+4. **../help_functions**:  
+   Declaration and implementation of all the smaller functions that build up the algorithm
+   
+   4.1 add_epsln.cuh - adding an epsilon to ensure that matrix is positive definit
+   
+   4.2 chol_InPlace.cuh - performs Cholesky Factorization in place (plan to substitute with GLASS function)
 
-3. **Makefile**:  
+   4.3 copy_mult.cuh - modified copy functions of several arrays
+
+   4.4 csv.cuh - a helper funciton to read and write csv examples
+
+   4.5 diag_Matrix_set.cuh - sets the diagonal of a matrix to a specific number (plan to call GLASS instead)
+
+   4.6 lowerBackSub.cuh - performs lower back substitution (plan to call GLASS instead in the future)
+
+   4.7 nested_dissect.cuh - the main file of the smaller functions for the algorithm (solve_leaf ; factorInnerProduct ; shouldCalcLambda ; updateSchur)
+
+   4.8 print_debug.cuh - a helper print function for customized debugging
+
+   4.9 scaled_sum.cuh - computes the scaled sum of two matrices (plan to call GLASS instead in the future)
+
+   4.10 set_const.cuh - sets the whole vector/matrix to a constant (plan to call GLASS instead)
+
+   4.11 tree_functs.cuh - functions that build and return values from the binary tree
+
+6. **Makefile**:  
    Automates the build process for compiling the CUDA and host code.
 
-4. **Tests (`tests/unit_tests`)**:  
+7. **Tests (`tests/unit_tests`)**:  
    Includes unit tests for validating key components of the implementation.
 
 ---
 
 ## Specific CUDA Code Overview
-
+[Include diagrams and explain the F-factor; F_lambda and etc../]
 The CUDA kernel implementation in `solve_lqr.cu` is designed to leverage the parallel processing power of NVIDIA GPUs. Key features include:
 
 - **Thread-Level Parallelism**:  
