@@ -137,7 +137,7 @@ The code is structured into the following main components:
 
 Before we dive into our solver method it's important to understand the underlying memory structure. We will quickly inspect the original memory design in the C- implementation, then switch to our CUDA memory design and explain the details about the imports between shared and device memory. 
 
-![Memory Layout](doc/Memory Layout in C code.png)
+![Memory Layout](BCHOL/doc/Memory Layout in C code.png)
 ### NDData 
 NDData helps us to separate: 
 
