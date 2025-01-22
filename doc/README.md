@@ -173,9 +173,24 @@ Last but not least, let's talk about the tree structure. After we refactorzied o
 |----------------------|---------|
 | ![image](https://github.com/user-attachments/assets/30a611ef-6d6f-4681-9d38-f4083b9fe147) | ![image](https://github.com/user-attachments/assets/93f11632-2e97-44fe-b5f9-fcb5b078161b) |
 
+### CUDA Implementation
 
+For the CUDA Implementation we are abondoning the ND_Data and ND_Factor structures. 
 
-## Specific CUDA Code Overview
+* ND Data_Data which contains original A and B matrices instead is saved into A_B 1D array, where A and B.T are saved in column-major order and sequentually stored (A1, B1.T, A2,B2.T...)
+*Q,R matrices are saved in condensed state (only diagonals) in 1D array sequentially (Q1,R1,Q2,R2..)
+*q,r vectors are saved in the same manner in q_r array
+*d vector is saved as a separate d array.
+
+It is important to emphasize that q,r,d are solved in place and become x,u,lambda - solution vector.
+
+Finally for the ND Data_Fact (the factorized matrices that keep the intermediate solutions of matrices and Cholesky factorizations) the tree structure is very crutial as the logic of the algorithm is based on the levels. Hence we are declaring 3 different arrays
+
+* **F_lambda** - an array of all the lambdas from the ND Factors stores sequentally level by level, for example for n=8 it'll be of size 24(8 timesteps*3 levels)×state×state
+* **F_state** - an array of all the states from the ND Factors stores sequentyally level by level
+* * **F_input** - an array of all the states from the ND Factors stores sequentyally level by level
+  
+# Specific CUDA Code Overview
 [Include diagrams and explain the F-factor; F_lambda and etc../]
 The CUDA kernel implementation in `solve_lqr.cu` is designed to leverage the parallel processing power of NVIDIA GPUs. Key features include:
 
