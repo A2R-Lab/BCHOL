@@ -165,11 +165,15 @@ U
 Last but not least, let's talk about the tree structure. After we refactorzied our [matrix](https://github.com/A2R-Lab/BCHOL/tree/main/doc#:~:text=Solving%20with%20Schur%20from%20the%20lowest%20levels%20%2D%20bottom%20up%20to%20the%20original%20KKT) and solved the independent equations we have two levels of systems for horizon 4. We can see that the matrix structure resembles the binary tree with *-I* matrix being next to the actual time step. The Binary tree structure is the underlying structure of ND Data_Data and ND Data_Fact.
 
 *Examples :*
-|Binary Tree | ND Data | 
+|Binary Tree for N=4| ND Data | 
 |----------|----------|
-| ![image](https://github.com/user-attachments/assets/60807e1b-3174-4aff-aa9e-7c45b1bda484)   | ![image](https://github.com/user-attachments/assets/ba2d6781-2f38-4ec7-adae-b08b691c4b42) | 
+| ![image](https://github.com/user-attachments/assets/60807e1b-3174-4aff-aa9e-7c45b1bda484) | ![image](https://github.com/user-attachments/assets/ba2d6781-2f38-4ec7-adae-b08b691c4b42) | 
+
+|Binary Tree for N=8 | ND Data | 
+|----------|----------|
 | ![image](https://github.com/user-attachments/assets/30a611ef-6d6f-4681-9d38-f4083b9fe147)
 | ![image](https://github.com/user-attachments/assets/93f11632-2e97-44fe-b5f9-fcb5b078161b)|
+
 
 
 
