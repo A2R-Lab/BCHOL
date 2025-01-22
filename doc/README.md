@@ -169,12 +169,9 @@ Last but not least, let's talk about the tree structure. After we refactorzied o
 |----------|----------|
 | ![image](https://github.com/user-attachments/assets/60807e1b-3174-4aff-aa9e-7c45b1bda484) | ![image](https://github.com/user-attachments/assets/ba2d6781-2f38-4ec7-adae-b08b691c4b42) | 
 
-|Binary Tree for N=8 | ND Data | 
-|----------|----------|
-| ![image](https://github.com/user-attachments/assets/30a611ef-6d6f-4681-9d38-f4083b9fe147)
-| ![image](https://github.com/user-attachments/assets/93f11632-2e97-44fe-b5f9-fcb5b078161b)|
-
-
+| Binary Tree for N=8 | ND Data |
+|----------------------|---------|
+| ![image](https://github.com/user-attachments/assets/30a611ef-6d6f-4681-9d38-f4083b9fe147) | ![image](https://github.com/user-attachments/assets/93f11632-2e97-44fe-b5f9-fcb5b078161b) |
 
 
 
