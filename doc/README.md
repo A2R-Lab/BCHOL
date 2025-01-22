@@ -80,18 +80,18 @@ Hence there are many different names for Control and State variables  we provide
 | `R`- Control cost matrix.     | `Q_R` array            | `R` is part of the `G_dense`| A matrix used in the cost function that penalizes control efforts. |
 | `q` - state cost vector       | `q_r` array            | q is part of the `g_dense`  | A vector used in the cost function to penalize deviations in the system state. |
 | `r`- control cost vector      | `q_r` array            | r is part of the `g_dense`  | A vector used in the cost function to penalize control efforts. |
-| `d/f`- DOUBLE CHECK            | `d` array             | DOUBLE CHECK                | A vector that saved the initial position and future [] |
-| `x` - system state vector     | the system solves in place and puts x values into `q_r` instead of the q vector | 'x' is part of the dxul   | A vector that represents the state of the system at a given time. |
+| `d/f`- DOUBLE CHECK            | `d` array             | DOUBLE CHECK                | External disturbance or offset in the system dynamics. |
+| `x` - system state vector     | the system solves in place and puts x values into `q_r` instead of the q vector | `x` is part of the dxul   | A vector that represents the state of the system at a given time. |
 | `u` - control input vector   | the system solves in place and puts u values into `q_r` instead of the r vector| `u` is part of the dxul  | A vector that represents the control input applied to the system. |
 | `λ` (Lambda) - dual variables     |  the system solves in place and puts lambda values into `d`  | lambda is part of the `dxul`  | A vector represents Lagrange multipliers or dual variables used to enforce constraints in optimization problems
 
 
-*It's important to mention that B matrix is transformed in BCHOL 
-** Maybe add F_lambda, F_state, F_input over here(??)
+*It's important to mention that all matrices are column-major order and B matrix is transformed in BCHOL examples and BCHOL's csv files.
+
 
 ---
 
-## Code Overview
+## Files overview
 
 The code is structured into the following main components:
 
@@ -104,27 +104,27 @@ The code is structured into the following main components:
 4. **../help_functions**:  
    Declaration and implementation of all the smaller functions that build up the algorithm
    
-   4.1 add_epsln.cuh - adding an epsilon to ensure that matrix is positive definit
+   4.1 `add_epsln.cuh` - adding an epsilon to ensure that matrix is positive definit
    
-   4.2 chol_InPlace.cuh - performs Cholesky Factorization in place (plan to substitute with GLASS function)
+   4.2 `chol_InPlace.cuh` - performs Cholesky Factorization in place (plan to substitute with GLASS function)
 
-   4.3 copy_mult.cuh - modified copy functions of several arrays
+   4.3 `copy_mult.cuh` - modified copy functions of several arrays
 
-   4.4 csv.cuh - a helper funciton to read and write csv examples
+   4.4 `csv.cuh `- a helper funciton to read and write csv examples
 
-   4.5 diag_Matrix_set.cuh - sets the diagonal of a matrix to a specific number (plan to call GLASS instead)
+   4.5 `diag_Matrix_set.cuh` - sets the diagonal of a matrix to a specific number (plan to call GLASS instead)
 
-   4.6 lowerBackSub.cuh - performs lower back substitution (plan to call GLASS instead in the future)
+   4.6 `lowerBackSub.cuh` - performs lower back substitution (plan to call GLASS instead in the future)
 
-   4.7 nested_dissect.cuh - the main file of the smaller functions for the algorithm (solve_leaf ; factorInnerProduct ; shouldCalcLambda ; updateSchur)
+   4.7 `nested_dissect.cuh` - the main file of the smaller functions for the algorithm (solve_leaf ; factorInnerProduct ; shouldCalcLambda ; updateSchur)
 
-   4.8 print_debug.cuh - a helper print function for customized debugging
+   4.8 `print_debug.cuh` - a helper print function for customized debugging
 
-   4.9 scaled_sum.cuh - computes the scaled sum of two matrices (plan to call GLASS instead in the future)
+   4.9 `scaled_sum.cuh` - computes the scaled sum of two matrices (plan to call GLASS instead in the future)
 
-   4.10 set_const.cuh - sets the whole vector/matrix to a constant (plan to call GLASS instead)
+   4.10 `set_const.cuh` - sets the whole vector/matrix to a constant (plan to call GLASS instead)
 
-   4.11 tree_functs.cuh - functions that build and return values from the binary tree
+   4.11 `tree_functs.cuh` - functions that build and return values from the binary tree
 
 6. **Makefile**:  
    Automates the build process for compiling the CUDA and host code.
@@ -133,6 +133,36 @@ The code is structured into the following main components:
    Includes unit tests for validating key components of the implementation.
 
 ---
+## Memory Design
+
+Before we dive into our solver method it's important to understand the underlying memory structure. We will quickly inspect the original memory design in the C- implementation, then switch to our CUDA memory design and explain the details about the imports between shared and device memory. 
+
+![Memory Layout](doc/Memory Layout in C code.png)
+### NDData 
+NDData helps us to separate: 
+
+**A) Initial Dynamic Matrices inside ND Data_Data (matrix in size 2m+n,n)**
+
+**B) Factorized matrices that will hold solutions to intermediate levels inside ND Data_Fact (matrix in size 2m+n,n)**
+
+**C) soln vector inside ND Data_soln (initially b vector that is solved in place)**
+
+
+### NDFactor - Lowest
+
+[NDdata](https://github.com/bjack205/rsLQR/blob/main/src/nddata.h) 
+NDfactor is the underlying structure that holds a chunk of memory for a single time step. It stores it in a way of a matrix size(2n+m) divided into blocks:
+
+\[
+\begin{bmatrix} 
+\Lambda \\ 
+X \\ 
+U 
+\end{bmatrix}
+\]
+
+### Binary Tree Structure
+
 
 ## Specific CUDA Code Overview
 [Include diagrams and explain the F-factor; F_lambda and etc../]
