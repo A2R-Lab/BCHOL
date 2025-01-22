@@ -178,9 +178,9 @@ Last but not least, let's talk about the tree structure. After we refactorzied o
 For the CUDA Implementation we are abondoning the ND_Data and ND_Factor structures. 
 
 * ND Data_Data which contains original A and B matrices instead is saved into A_B 1D array, where A and B.T are saved in column-major order and sequentually stored (A1, B1.T, A2,B2.T...)
-*Q,R matrices are saved in condensed state (only diagonals) in 1D array sequentially (Q1,R1,Q2,R2..)
-*q,r vectors are saved in the same manner in q_r array
-*d vector is saved as a separate d array.
+* Q,R matrices are saved in condensed state (only diagonals) in 1D array sequentially (Q1,R1,Q2,R2..)
+* q,r vectors are saved in the same manner in q_r array
+* d vector is saved as a separate d array.
 
 It is important to emphasize that q,r,d are solved in place and become x,u,lambda - solution vector.
 
@@ -188,7 +188,7 @@ Finally for the ND Data_Fact (the factorized matrices that keep the intermediate
 
 * **F_lambda** - an array of all the lambdas from the ND Factors stores sequentally level by level, for example for n=8 it'll be of size 24(8 timesteps*3 levels)×state×state
 * **F_state** - an array of all the states from the ND Factors stores sequentyally level by level
-* * **F_input** - an array of all the states from the ND Factors stores sequentyally level by level
+* **F_input** - an array of all the states from the ND Factors stores sequentyally level by level
   
 # Specific CUDA Code Overview
 [Include diagrams and explain the F-factor; F_lambda and etc../]
