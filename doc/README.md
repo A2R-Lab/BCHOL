@@ -189,7 +189,28 @@ Finally for the ND Data_Fact (the factorized matrices that keep the intermediate
 * **F_lambda** - an array of all the lambdas from the ND Factors stores sequentally level by level, for example for n=8 it'll be of size 24(8 timesteps*3 levels)×state×state
 * **F_state** - an array of all the states from the ND Factors stores sequentyally level by level
 * **F_input** - an array of all the states from the ND Factors stores sequentyally level by level
-  
+
+# Function flow and algorithm explained
+
+On every level we follow the current order of actions:
+
+| Shur component we are solving for    | Function launched   |
+|--------------------------------------|--------------------------------------|
+|  D̅ , E̅, a̅, c̅                         |solve_leaf.cuh for the 1st level, for other levels loads from F_state, F_input     |
+| B&#772 and b&#772                    | factorInner_products.cuh         |
+| Factorizing B&#772 with Cholesky so we can solve it in next step                       |    Done in the main loop of the kernel with chol_InPlace     |
+| Solving for y with B&#772 and b&#772            |   solveCholeskyFactor.cuh      |
+| Solving for x,z            |   updateShur.cuh      |
+
+After updating shur compliments we get  D̅ , E̅, a̅, c̅ for the parent level from the solved system in the previous level.
+![image](https://github.com/user-attachments/assets/76bc4c7f-ed68-47aa-873f-045ce11b8128)
+
+
+Please note that the main loop of the code is divided into two parts:
+1. solving matrix factorization levels with Q,R,A,B
+2. solving "soln" with factorized matrices from part 1 with q,r,d vectors that are solved in palce and become x,u,lambda.
+
+
 # Specific CUDA Code Overview
 [Include diagrams and explain the F-factor; F_lambda and etc../]
 The CUDA kernel implementation in `solve_lqr.cu` is designed to leverage the parallel processing power of NVIDIA GPUs. Key features include:
