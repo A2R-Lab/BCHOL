@@ -153,13 +153,10 @@ Before we dive into our solver method it's important to understand the underlyin
 
 NDfactor is the underlying structure that holds a chunk of memory for a single time step. It stores it in a way of a matrix size(2n+m) divided into blocks:
 
-\[
-\begin{bmatrix} 
-\Lambda \\ 
-X \\ 
-U 
-\end{bmatrix}
-\]
+⎡ Λ ⎤
+⎢ X ⎥
+⎣ U ⎦
+
 
 ### Binary Tree Structure
 Last but not least, let's talk about the tree structure. After we refactorzied our [matrix](https://github.com/A2R-Lab/BCHOL/tree/main/doc#:~:text=Solving%20with%20Schur%20from%20the%20lowest%20levels%20%2D%20bottom%20up%20to%20the%20original%20KKT) and solved the independent equations we have two levels of systems for horizon 4. We can see that the matrix structure resembles the binary tree with *-I* matrix being next to the actual time step. The Binary tree structure is the underlying structure of ND Data_Data and ND Data_Fact.
@@ -197,9 +194,9 @@ On every level we follow the current order of actions:
 | Shur component we are solving for    | Function launched   |
 |--------------------------------------|--------------------------------------|
 |  D̅ , E̅, a̅, c̅                         |solve_leaf.cuh for the 1st level, for other levels loads from F_state, F_input     |
-| B&#772 and b&#772                    | factorInner_products.cuh         |
+| B̅, b̅                   | factorInner_products.cuh         |
 | Factorizing B&#772 with Cholesky so we can solve it in next step                       |    Done in the main loop of the kernel with chol_InPlace     |
-| Solving for y with B&#772 and b&#772            |   solveCholeskyFactor.cuh      |
+| Solving for y with B̅, b̅            |   solveCholeskyFactor.cuh      |
 | Solving for x,z            |   updateShur.cuh      |
 
 After updating shur compliments we get  D̅ , E̅, a̅, c̅ for the parent level from the solved system in the previous level.
@@ -212,26 +209,15 @@ Please note that the main loop of the code is divided into two parts:
 
 
 # Specific CUDA Code Overview
-[Include diagrams and explain the F-factor; F_lambda and etc../]
-The CUDA kernel implementation in `solve_lqr.cu` is designed to leverage the parallel processing power of NVIDIA GPUs. Key features include:
 
-- **Thread-Level Parallelism**:  
-  Each thread computes part of the solution for a state/control update.
+The CUDA kernel implementation in `solve.cuh` is designed to leverage the parallel processing power of NVIDIA GPUs. Frequently accessed data is stored in shared memory to reduce global memory access overhead. We assign each system of linear equations to a separate block that allows us to run the functions such as factorInner_products, solveCholeskyFactor, etc. together, while inside each block, these functions are further parallelized with Thread-level Parallelism for matrix multiplications.
 
-- **Shared Memory Optimization**:  
-  Frequently accessed data (e.g., matrices `A`, `B`, `Q`, `R`) is stored in shared memory to reduce global memory access overhead.
+* Launch kernel with the number of blocks = number of steps. This will allow you to maximize the parallelizm during the solve_leaf.cuh, which solves independent systems. After that each block copies its solved matrices to the 
 
-- **Memory Coalescing**:  
-  Data access is optimized for efficient coalescing to minimize latency.
+* Upon starting the big loop of Shur compliments, we calculate how many blocks are needed for that level, and each block proceeds independently while loading its results to the global memory when done.
+  
+To access a more detailed diagram of dependencies between timesteps and blocks please see this [document](https://github.com/A2R-Lab/BCHOL/blob/main/doc/Memory%20usage%20of%20big%20loop.pdf)
 
-- **Use of cuBLAS**:  
-  The `cuBLAS` library is employed for matrix operations like multiplication, ensuring high-performance computation.
-
-<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
-   <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />
-   Sorry, your browser does not support inline SVG.
-</svg> 
----
 
 ## Implementation Uniqueness
 
@@ -246,8 +232,6 @@ The implementation distinguishes itself with the following unique features:
 3. **Scalability**:  
    - The code scales efficiently with problem size and GPU resources, leveraging hierarchical parallelism (blocks and threads).
 
-4. **Error Debugging with Device Flags**:  
-   - The `-g -G` flags in the `Makefile` enable device-side debugging for easier identification of runtime issues.
 
 ---
 
