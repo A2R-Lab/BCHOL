@@ -35,7 +35,7 @@ This method is part of the GATO solver (GPU Accelerated Trajectory Optimization)
   
 ## Installation
 
-   This solver uses our GPU Linear Algebra Simple Subrotoutines (GLASS) library as a submodule, as it has proved to be faster for smaller problems than the traditional cuBLASS library.
+   This solver uses our GPU Linear Algebra Simple Subrotoutines (GLASS) library as a submodule, as it has proved to be faster for smaller problems than the traditional cuBLAS library.
    
    Clone the repository and initialize the submodule, then run *make* command in the src folder.
    ```bash
